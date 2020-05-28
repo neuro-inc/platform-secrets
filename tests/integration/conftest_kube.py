@@ -9,6 +9,7 @@ from platform_secrets.config import KubeConfig
 from platform_secrets.kube_client import KubeClient
 
 
+@pytest.fixture(scope="session")
 def kube_config_payload() -> Dict[str, Any]:
     result = subprocess.run(
         ["kubectl", "config", "view", "-o", "json"], stdout=subprocess.PIPE
