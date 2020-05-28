@@ -50,8 +50,9 @@ gke_login:
 	gcloud auth configure-docker
 
 gke_docker_pull_test_images:
-	docker pull $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)/platformauthapi:$(PLATFORMAUTHAPI_TAG)
-	docker tag $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)/platformauthapi:$(PLATFORMAUTHAPI_TAG) platformauthapi:latest
+	eval $(minikube docker-env) && \
+	    docker pull $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)/platformauthapi:$(PLATFORMAUTHAPI_TAG) && \
+	    docker tag $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)/platformauthapi:$(PLATFORMAUTHAPI_TAG) platformauthapi:latest
 
 gke_docker_push: build
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE):latest
