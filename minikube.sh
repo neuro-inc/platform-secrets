@@ -28,8 +28,11 @@ function load_k8s_image {
 
 function minikube::load_images {
     echo "Loading images to minikube..."
+    save_k8s_image platformauthapi
 
     eval $(minikube docker-env)
+
+    load_k8s_image platformauthapi
 }
 
 function minikube::apply_all_configurations {
@@ -69,6 +72,9 @@ function check_service() { # attempt, max_attempt, service
 function minikube::apply {
     minikube status
     minikube::apply_all_configurations
+
+    max_attempts=30
+    check_service $max_attempts platformauthapi
 }
 
 
