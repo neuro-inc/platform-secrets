@@ -1,0 +1,20 @@
+FROM python:3.7.5-stretch
+
+WORKDIR /neuromation
+
+ARG PIP_EXTRA_INDEX_URL
+
+# installing dependencies ONLY
+COPY setup.py ./
+RUN \
+    pip install -e . && \
+    pip uninstall -y platform-secrets
+
+# installing platform-secrets
+COPY platform_secrets platform_secrets
+RUN pip install -e .
+
+ENV NP_SECRETS_API_PORT=8080
+EXPOSE $NP_SECRETS_API_PORT
+
+CMD platform-secrets
