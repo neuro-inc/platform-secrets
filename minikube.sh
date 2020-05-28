@@ -9,11 +9,8 @@ GKE_PREFIX=$GKE_DOCKER_REGISTRY/$GKE_PROJECT_ID
 
 function minikube::start {
     echo "Starting minikube..."
-    mkdir -p ~/.minikube/files/files
-    cp tests/k8s/fluentd/kubernetes.conf ~/.minikube/files/files/fluentd-kubernetes.conf
     minikube config set WantUpdateNotification false
     minikube start --kubernetes-version=v1.13.0
-    minikube addons enable registry
     kubectl config use-context minikube
 }
 
@@ -32,36 +29,22 @@ function load_k8s_image {
 function minikube::load_images {
     echo "Loading images to minikube..."
     save_k8s_image platformauthapi
-    save_k8s_image platformapi
-    save_k8s_image platformconfig
-    save_k8s_image platformconfig-migrations
 
     eval $(minikube docker-env)
 
     load_k8s_image platformauthapi
-    load_k8s_image platformapi
-    load_k8s_image platformconfig
-    load_k8s_image platformconfig-migrations
 }
 
 function minikube::apply_all_configurations {
     echo "Applying configurations..."
     kubectl config use-context minikube
-    kubectl apply -f tests/k8s/dockerengineapi.yml
     kubectl apply -f tests/k8s/rb.default.gke.yml
-    kubectl apply -f tests/k8s/logging.yml
-    kubectl apply -f tests/k8s/platformconfig.yml
-    kubectl apply -f tests/k8s/platformapi.yml
 }
 
 function minikube::clean {
     echo "Cleaning up..."
     kubectl config use-context minikube
-    kubectl delete -f tests/k8s/dockerengineapi.yml
     kubectl delete -f tests/k8s/rb.default.gke.yml
-    kubectl delete -f tests/k8s/logging.yml
-    kubectl delete -f tests/k8s/platformconfig.yml
-    kubectl delete -f tests/k8s/platformapi.yml
 }
 
 function minikube::stop {
@@ -83,16 +66,12 @@ function check_service() { # attempt, max_attempt, service
 	fi
 	sleep 1
 	((attempt++))
-    done    
+    done
 }
 
 function minikube::apply {
     minikube status
     minikube::apply_all_configurations
-
-    max_attempts=30
-    check_service $max_attempts platformapi
-    check_service $max_attempts platformauthapi
 }
 
 

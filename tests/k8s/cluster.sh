@@ -31,21 +31,13 @@ function k8s::start {
     export MINIKUBE_HOME=$HOME
     export CHANGE_MINIKUBE_NONE_USER=true
 
-    sudo -E mkdir -p ~/.minikube/files/files
-    sudo -E cp tests/k8s/fluentd/kubernetes.conf ~/.minikube/files/files/fluentd-kubernetes.conf
     sudo -E minikube start --vm-driver=none --kubernetes-version=v1.13.0
-
-    sudo -E minikube addons enable registry
 }
 
 function k8s::apply_all_configurations {
     echo "Applying configurations..."
     kubectl config use-context minikube
     kubectl apply -f tests/k8s/rb.default.gke.yml
-    kubectl apply -f tests/k8s/logging.yml
-    kubectl apply -f tests/k8s/platformconfig.yml
-    kubectl apply -f tests/k8s/platformapi.yml
-    kubectl apply -f tests/k8s/dockerengineapi.yml
 }
 
 
