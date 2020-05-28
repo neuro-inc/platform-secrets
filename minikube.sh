@@ -28,11 +28,8 @@ function load_k8s_image {
 
 function minikube::load_images {
     echo "Loading images to minikube..."
-    save_k8s_image platformauthapi
 
     eval $(minikube docker-env)
-
-    load_k8s_image platformauthapi
 }
 
 function minikube::apply_all_configurations {
