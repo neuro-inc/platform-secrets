@@ -10,14 +10,10 @@ from uuid import uuid1
 import aiohttp
 import aiohttp.web
 import pytest
-from aioelasticsearch import Elasticsearch
 from async_timeout import timeout
-from neuromation.api import Client as PlatformApiClient
-from platform_monitoring.api import (
-    create_elasticsearch_client,
-    create_platform_api_client,
-)
-from platform_monitoring.config import (
+from yarl import URL
+
+from platform_secrets.config import (
     Config,
     CORSConfig,
     DockerConfig,
@@ -28,7 +24,6 @@ from platform_monitoring.config import (
     RegistryConfig,
     ServerConfig,
 )
-from yarl import URL
 
 
 logger = logging.getLogger(__name__)
@@ -104,45 +99,6 @@ async def platform_api_config(
         url=url,
         token=token_factory("compute"),  # token is hard-coded in the yaml configuration
     )
-
-
-@pytest.fixture
-async def platform_api_client(
-    platform_api_config: PlatformApiConfig,
-) -> AsyncIterator[PlatformApiClient]:
-    async with create_platform_api_client(platform_api_config) as client:
-        yield client
-
-
-@pytest.fixture
-# TODO (A Yushkovskiy, 05-May-2019) This fixture should have scope="session" in order
-#  to be faster, but it causes mysterious errors `RuntimeError: Event loop is closed`
-async def es_config(
-    token_factory: Callable[[str], str]
-) -> AsyncIterator[ElasticsearchConfig]:
-    es_host = get_service_url("elasticsearch-logging", namespace="kube-system")
-    yield ElasticsearchConfig(hosts=[es_host])
-
-
-@pytest.fixture
-async def es_client(es_config: ElasticsearchConfig) -> AsyncIterator[Elasticsearch]:
-    """ Elasticsearch client that goes directly to elasticsearch-logging service
-    without any authentication.
-    """
-    async with create_elasticsearch_client(es_config) as es_client:
-        yield es_client
-
-
-@pytest.fixture
-async def registry_config() -> RegistryConfig:
-    url = URL("http://localhost:5000")
-    await wait_for_service("docker registry", url / "v2/", timeout_s=120)
-    return RegistryConfig(url)
-
-
-@pytest.fixture
-def docker_config() -> DockerConfig:
-    return DockerConfig()
 
 
 @pytest.fixture

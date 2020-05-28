@@ -2,7 +2,9 @@ from pathlib import Path
 from typing import Any, Dict
 
 import pytest
-from platform_monitoring.config import (
+from yarl import URL
+
+from platform_secrets.config import (
     Config,
     CORSConfig,
     DockerConfig,
@@ -14,8 +16,7 @@ from platform_monitoring.config import (
     RegistryConfig,
     ServerConfig,
 )
-from platform_monitoring.config_factory import EnvironConfigFactory
-from yarl import URL
+from platform_secrets.config_factory import EnvironConfigFactory
 
 
 CA_DATA_PEM = "this-is-certificate-authority-public-key"

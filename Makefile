@@ -24,19 +24,19 @@ setup:
 	pip install -r requirements/test.txt
 
 lint:
-	black --check platform_monitoring tests setup.py
-	flake8 platform_monitoring tests setup.py
-	mypy platform_monitoring tests setup.py
+	black --check platform_secrets tests setup.py
+	flake8 platform_secrets tests setup.py
+	mypy platform_secrets tests setup.py
 
 format:
-	isort -rc platform_monitoring tests setup.py
-	black platform_monitoring tests setup.py
+	isort -rc platform_secrets tests setup.py
+	black platform_secrets tests setup.py
 
 test_unit:
-	pytest -vv --cov=platform_monitoring --cov-report xml:.coverage-unit.xml tests/unit
+	pytest -vv --cov=platform_secrets --cov-report xml:.coverage-unit.xml tests/unit
 
 test_integration:
-	pytest -vv --maxfail=3 --cov=platform_monitoring --cov-report xml:.coverage-integration.xml tests/integration
+	pytest -vv --maxfail=3 --cov=platform_secrets --cov-report xml:.coverage-integration.xml tests/integration
 
 build:
 	@docker build -f Dockerfile.k8s -t $(IMAGE_NAME):$(IMAGE_TAG) --build-arg PIP_EXTRA_INDEX_URL="$(PIP_EXTRA_INDEX_URL)" .
