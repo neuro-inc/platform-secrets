@@ -61,7 +61,6 @@ jobs:
       - run:
           name: Setting up Python Virtual Environment
           command: |
-            set -x
             pyenv global 3.7.0
             python -m venv venv
             source venv/bin/activate
@@ -84,59 +83,17 @@ jobs:
             source venv/bin/activate
             make test_unit
 
-      - codecov/upload:
-          file: .coverage-unit.xml
-          flags: unit
-
       - run:
           name: Running Integration Tests
           command: |
             source venv/bin/activate
             make test_integration
 
-      - codecov/upload:
-          file: .coverage-integration.xml
-          flags: integration
-
       - run:
           name: Stopping Kubernetes
           command: |
             make clean_k8s
           when: always
-
-  gke_deploy:
-    <<: *defaults
-    steps:
-      - checkout
-      - run:
-          name: GKE Auth
-          command: |
-            make -s gke_login
-      - run:
-          name: GKE Docker Push
-          command: |
-            make gke_docker_push
-      - run:
-          name: GKE Deploy
-          command: |
-            make gke_k8s_deploy
-
-  artifactory_deploy:
-    <<: *defaults
-
-    steps:
-      - checkout
-
-      - run:
-          name: Artifactory Docker Push
-          command: |
-            make artifactory_docker_push
-
-      - run:
-          name: Artifactory Helm Push
-          command: |
-            make artifactory_helm_push
-
 
 
 workflows:
@@ -150,43 +107,3 @@ workflows:
             branches:
               ignore:
                 - master
-                - /release.*/
-                - /artifactory.*/
-
-  dev:
-    jobs:
-      - test:
-          context: org-dev
-          filters:
-            branches:
-              only:
-                - master
-      - gke_deploy:
-          context: org-dev
-          requires:
-            - test
-          filters:
-            branches:
-              only:
-                - master
-
-  artifactory:
-    jobs:
-      - test:
-          context: org-global
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only:
-                - /artifactory.*/
-      - artifactory_deploy:
-          context: org-global
-          requires:
-            - test
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only:
-                - /artifactory.*/
