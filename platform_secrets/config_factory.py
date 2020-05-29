@@ -8,13 +8,9 @@ from yarl import URL
 from .config import (
     Config,
     CORSConfig,
-    DockerConfig,
-    ElasticsearchConfig,
     KubeClientAuthType,
     KubeConfig,
-    PlatformApiConfig,
     PlatformAuthConfig,
-    RegistryConfig,
     ServerConfig,
 )
 
@@ -30,12 +26,8 @@ class EnvironConfigFactory:
         cluster_name = self._environ.get("NP_CLUSTER_NAME", "")
         return Config(
             server=self._create_server(),
-            platform_api=self._create_platform_api(),
             platform_auth=self._create_platform_auth(),
-            elasticsearch=self._create_elasticsearch(),
             kube=self._create_kube(),
-            registry=self._create_registry(),
-            docker=self._create_docker(),
             cluster_name=cluster_name,
             cors=self.create_cors(),
         )
@@ -45,19 +37,10 @@ class EnvironConfigFactory:
         port = int(self._environ.get("NP_MONITORING_API_PORT", ServerConfig.port))
         return ServerConfig(host=host, port=port)
 
-    def _create_platform_api(self) -> PlatformApiConfig:
-        url = URL(self._environ["NP_MONITORING_PLATFORM_API_URL"])
-        token = self._environ["NP_MONITORING_PLATFORM_API_TOKEN"]
-        return PlatformApiConfig(url=url, token=token)
-
     def _create_platform_auth(self) -> PlatformAuthConfig:
         url = URL(self._environ["NP_MONITORING_PLATFORM_AUTH_URL"])
         token = self._environ["NP_MONITORING_PLATFORM_AUTH_TOKEN"]
         return PlatformAuthConfig(url=url, token=token)
-
-    def _create_elasticsearch(self) -> ElasticsearchConfig:
-        hosts = self._environ["NP_MONITORING_ES_HOSTS"].split(",")
-        return ElasticsearchConfig(hosts=hosts)
 
     def _create_kube(self) -> KubeConfig:
         endpoint_url = self._environ["NP_MONITORING_K8S_API_URL"]
@@ -97,12 +80,6 @@ class EnvironConfigFactory:
                 or KubeConfig.kubelet_node_port
             ),
         )
-
-    def _create_registry(self) -> RegistryConfig:
-        return RegistryConfig(url=URL(self._environ["NP_MONITORING_REGISTRY_URL"]))
-
-    def _create_docker(self) -> DockerConfig:
-        return DockerConfig()
 
     def create_cors(self) -> CORSConfig:
         origins: Sequence[str] = CORSConfig.allowed_origins

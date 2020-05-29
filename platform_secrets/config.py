@@ -12,20 +12,9 @@ class ServerConfig:
 
 
 @dataclass(frozen=True)
-class PlatformApiConfig:
-    url: URL
-    token: str
-
-
-@dataclass(frozen=True)
 class PlatformAuthConfig:
     url: URL
     token: str
-
-
-@dataclass(frozen=True)
-class ElasticsearchConfig:
-    hosts: Sequence[str]
 
 
 class KubeClientAuthType(str, enum.Enum):
@@ -57,29 +46,9 @@ class KubeConfig:
 
 
 @dataclass(frozen=True)
-class RegistryConfig:
-    url: URL
-
-    @property
-    def host(self) -> str:
-        port = self.url.explicit_port  # type: ignore
-        suffix = f":{port}" if port else ""
-        return f"{self.url.host}{suffix}"
-
-
-@dataclass(frozen=True)
-class DockerConfig:
-    docker_engine_api_port: int = 2375
-
-
-@dataclass(frozen=True)
 class Config:
     server: ServerConfig
-    platform_api: PlatformApiConfig
     platform_auth: PlatformAuthConfig
-    elasticsearch: ElasticsearchConfig
     kube: KubeConfig
-    docker: DockerConfig
-    registry: RegistryConfig
     cors: CORSConfig
     cluster_name: str

@@ -7,13 +7,9 @@ from yarl import URL
 from platform_secrets.config import (
     Config,
     CORSConfig,
-    DockerConfig,
-    ElasticsearchConfig,
     KubeClientAuthType,
     KubeConfig,
-    PlatformApiConfig,
     PlatformAuthConfig,
-    RegistryConfig,
     ServerConfig,
 )
 from platform_secrets.config_factory import EnvironConfigFactory
@@ -41,13 +37,8 @@ def test_create(cert_authority_path: str, token_path: str) -> None:
     environ: Dict[str, Any] = {
         "NP_MONITORING_API_HOST": "0.0.0.0",
         "NP_MONITORING_API_PORT": 8080,
-        "NP_MONITORING_PLATFORM_API_URL": "http://platformapi/api/v1",
-        "NP_MONITORING_PLATFORM_API_TOKEN": "platform-api-token",
         "NP_MONITORING_PLATFORM_AUTH_URL": "http://platformauthapi/api/v1",
         "NP_MONITORING_PLATFORM_AUTH_TOKEN": "platform-auth-token",
-        "NP_MONITORING_ES_HOSTS": "http://es1,http://es2",
-        "NP_MONITORING_ES_AUTH_USER": "test-user",
-        "NP_MONITORING_ES_AUTH_PASSWORD": "test-password",
         "NP_MONITORING_K8S_API_URL": "https://localhost:8443",
         "NP_MONITORING_K8S_AUTH_TYPE": "token",
         "NP_MONITORING_K8S_CA_PATH": cert_authority_path,
@@ -58,7 +49,6 @@ def test_create(cert_authority_path: str, token_path: str) -> None:
         "NP_MONITORING_K8S_CLIENT_CONN_TIMEOUT": "111",
         "NP_MONITORING_K8S_CLIENT_READ_TIMEOUT": "222",
         "NP_MONITORING_K8S_CLIENT_CONN_POOL_SIZE": "333",
-        "NP_MONITORING_REGISTRY_URL": "http://testhost:5000",
         "NP_CLUSTER_NAME": "default",
         "NP_MONITORING_K8S_KUBELET_PORT": "12321",
         "NP_CORS_ORIGINS": "https://domain1.com,http://do.main",
@@ -66,13 +56,9 @@ def test_create(cert_authority_path: str, token_path: str) -> None:
     config = EnvironConfigFactory(environ).create()
     assert config == Config(
         server=ServerConfig(host="0.0.0.0", port=8080),
-        platform_api=PlatformApiConfig(
-            url=URL("http://platformapi/api/v1"), token="platform-api-token"
-        ),
         platform_auth=PlatformAuthConfig(
             url=URL("http://platformauthapi/api/v1"), token="platform-auth-token"
         ),
-        elasticsearch=ElasticsearchConfig(hosts=["http://es1", "http://es2"]),
         kube=KubeConfig(
             endpoint_url="https://localhost:8443",
             cert_authority_data_pem=CA_DATA_PEM,
@@ -86,21 +72,6 @@ def test_create(cert_authority_path: str, token_path: str) -> None:
             client_conn_pool_size=333,
             kubelet_node_port=12321,
         ),
-        registry=RegistryConfig(url=URL("http://testhost:5000")),
-        docker=DockerConfig(),
         cluster_name="default",
         cors=CORSConfig(["https://domain1.com", "http://do.main"]),
     )
-
-
-@pytest.mark.parametrize(
-    "url, expected_host",
-    (
-        (URL("https://testdomain.com"), "testdomain.com"),
-        (URL("https://testdomain.com:443"), "testdomain.com:443"),
-        (URL("http://localhost:5000"), "localhost:5000"),
-    ),
-)
-def test_registry_config_host(url: URL, expected_host: str) -> None:
-    config = RegistryConfig(url)
-    assert config.host == expected_host

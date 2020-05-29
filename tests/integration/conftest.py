@@ -16,12 +16,8 @@ from yarl import URL
 from platform_secrets.config import (
     Config,
     CORSConfig,
-    DockerConfig,
-    ElasticsearchConfig,
     KubeConfig,
-    PlatformApiConfig,
     PlatformAuthConfig,
-    RegistryConfig,
     ServerConfig,
 )
 
@@ -31,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 pytest_plugins = [
     "tests.integration.conftest_auth",
-    "tests.integration.conftest_config",
     "tests.integration.conftest_kube",
 ]
 
@@ -86,40 +81,14 @@ async def wait_for_service(
 
 
 @pytest.fixture
-# TODO (A Yushkovskiy, 05-May-2019) This fixture should have scope="session" in order
-#  to be faster, but it causes mysterious errors `RuntimeError: Event loop is closed`
-async def platform_api_config(
-    token_factory: Callable[[str], str],
-) -> AsyncIterator[PlatformApiConfig]:
-    base_url = get_service_url("platformapi", namespace="default")
-    assert base_url.startswith("http")
-    url = URL(base_url) / "api/v1"
-    await wait_for_service("platformapi", url / "ping")
-    yield PlatformApiConfig(
-        url=url,
-        token=token_factory("compute"),  # token is hard-coded in the yaml configuration
-    )
-
-
-@pytest.fixture
 def config_factory(
-    auth_config: PlatformAuthConfig,
-    platform_api_config: PlatformApiConfig,
-    es_config: ElasticsearchConfig,
-    kube_config: KubeConfig,
-    registry_config: RegistryConfig,
-    docker_config: DockerConfig,
-    cluster_name: str,
+    auth_config: PlatformAuthConfig, kube_config: KubeConfig, cluster_name: str,
 ) -> Callable[..., Config]:
     def _f(**kwargs: Any) -> Config:
         defaults = dict(
             server=ServerConfig(host="0.0.0.0", port=8080),
             platform_auth=auth_config,
-            platform_api=platform_api_config,
-            elasticsearch=es_config,
             kube=kube_config,
-            registry=registry_config,
-            docker=docker_config,
             cluster_name=cluster_name,
             cors=CORSConfig(allowed_origins=["https://neu.ro"]),
         )
@@ -183,3 +152,8 @@ def get_service_url(  # type: ignore
         timeout_s -= interval_s
 
     pytest.fail(f"Service {service_name} is unavailable.")
+
+
+@pytest.fixture
+def cluster_name() -> str:
+    return "test-cluster"
