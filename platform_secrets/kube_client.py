@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 import aiohttp
 
-from .config import KubeClientAuthType, KubeConfig
+from .config import KubeClientAuthType
 
 
 logger = logging.getLogger(__name__)
