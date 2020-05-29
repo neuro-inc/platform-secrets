@@ -10,7 +10,6 @@ ifdef CIRCLECI
     PIP_EXTRA_INDEX_URL ?= https://$(DEVPI_USER):$(DEVPI_PASS)@$(DEVPI_HOST)/$(DEVPI_USER)/$(DEVPI_INDEX)
 else
     PIP_EXTRA_INDEX_URL ?= $(shell python pip_extra_index_url.py)
-    MINIKUBE_SCRIPT="./minikube.sh"
 endif
 export PIP_EXTRA_INDEX_URL
 
@@ -53,31 +52,3 @@ gke_docker_pull_test_images:
 	@eval $$(minikube docker-env); \
 	    docker pull $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)/platformauthapi:$(PLATFORMAUTHAPI_TAG); \
 	    docker tag $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)/platformauthapi:$(PLATFORMAUTHAPI_TAG) platformauthapi:latest
-
-gke_docker_push: build
-	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE):latest
-	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE):$(CIRCLE_SHA1)
-	docker push $(IMAGE)
-
-_helm:
-	curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash -s -- -v v2.11.0
-
-gke_k8s_deploy: _helm
-	gcloud --quiet container clusters get-credentials $(GKE_CLUSTER_NAME) $(CLUSTER_ZONE_REGION)
-	helm -f deploy/platformmonitoringapi/values-$(HELM_ENV).yaml --set "IMAGE=$(IMAGE):$(CIRCLE_SHA1)" upgrade --install platformmonitoringapi deploy/platformmonitoringapi/ --wait --timeout 600
-
-artifactory_docker_push: build
-	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(ARTIFACTORY_DOCKER_REPO)/$(IMAGE_NAME):$(ARTIFACTORY_TAG)
-	docker login $(ARTIFACTORY_DOCKER_REPO) --username=$(ARTIFACTORY_USERNAME) --password=$(ARTIFACTORY_PASSWORD)
-	docker push $(ARTIFACTORY_DOCKER_REPO)/$(IMAGE_NAME):$(ARTIFACTORY_TAG)
-
-artifactory_helm_push: _helm
-	mkdir -p temp_deploy/platformmonitoringapi
-	cp -Rf deploy/platformmonitoringapi/. temp_deploy/platformmonitoringapi
-	cp temp_deploy/platformmonitoringapi/values-template.yaml temp_deploy/platformmonitoringapi/values.yaml
-	sed -i "s/IMAGE_TAG/$(ARTIFACTORY_TAG)/g" temp_deploy/platformmonitoringapi/values.yaml
-	find temp_deploy/platformmonitoringapi -type f -name 'values-*' -delete
-	helm init --client-only
-	helm package --app-version=$(ARTIFACTORY_TAG) --version=$(ARTIFACTORY_TAG) temp_deploy/platformmonitoringapi/
-	helm plugin install https://github.com/belitre/helm-push-artifactory-plugin
-	helm push-artifactory $(IMAGE_NAME)-$(ARTIFACTORY_TAG).tgz $(ARTIFACTORY_HELM_REPO) --username $(ARTIFACTORY_USERNAME) --password $(ARTIFACTORY_PASSWORD)
