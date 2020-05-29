@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -o verbose
 
-GKE_DOCKER_REGISTRY=gcr.io
-GKE_PROJECT_ID=light-reality-205619
-
-GKE_PREFIX=$GKE_DOCKER_REGISTRY/$GKE_PROJECT_ID
+export GKE_DOCKER_REGISTRY=gcr.io
+export GKE_PROJECT_ID=light-reality-205619
 
 
 function minikube::start {
@@ -14,25 +12,9 @@ function minikube::start {
     kubectl config use-context minikube
 }
 
-function save_k8s_image {
-    local image=$1
-    echo "Saving ${image}"
-    docker save -o /tmp/${image}.image $image:latest
-}
-
-function load_k8s_image {
-    local image=$1
-    echo "Loading ${image}"
-    docker load -i /tmp/${image}.image
-}
-
 function minikube::load_images {
     echo "Loading images to minikube..."
-    save_k8s_image platformauthapi
-
-    eval $(minikube docker-env)
-
-    load_k8s_image platformauthapi
+    make gke_docker_pull_test_images
 }
 
 function minikube::apply_all_configurations {
