@@ -53,10 +53,16 @@ class Service:
         except (ResourceNotFound, ResourceInvalid):
             raise SecretNotFound.create(secret.key)
 
-    async def get_secrets(self, user: User) -> List[Secret]:
+    async def get_secrets(self, user: User, with_values: bool = False) -> List[Secret]:
         secret_name = self._get_kube_secret_name(user)
         try:
             payload = await self._kube_client.get_secret(secret_name)
-            return [Secret(key=key) for key in payload.get("data", {}).keys()]
+            if with_values:
+                return [
+                    Secret(key=key, value=value)
+                    for key, value in payload.get("data", {}).items()
+                ]
+            else:
+                return [Secret(key=key) for key in payload.get("data", {}).keys()]
         except ResourceNotFound:
             return []

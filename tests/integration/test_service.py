@@ -49,6 +49,19 @@ class TestService:
         secrets = await service.get_secrets(user)
         assert not secrets
 
+    async def test_add_secret_replace(self, service: Service) -> None:
+        user = User(name=random_name())
+
+        secret = Secret("testkey", base64.b64encode(b"testvalue1").decode())
+        await service.add_secret(user, secret)
+        secrets = await service.get_secrets(user, with_values=True)
+        assert set(secrets) == {secret}
+
+        secret = Secret("testkey", base64.b64encode(b"testvalue2").decode())
+        await service.add_secret(user, secret)
+        secrets = await service.get_secrets(user, with_values=True)
+        assert set(secrets) == {secret}
+
     async def test_remove_secret_key_not_found(self, service: Service) -> None:
         user = User(name=random_name())
         secret1 = Secret("testkey1", base64.b64encode(b"testvalue").decode())
