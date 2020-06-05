@@ -16,11 +16,18 @@ class TestService:
     def service(self, kube_client: KubeClient) -> Service:
         return Service(kube_client=kube_client)
 
-    async def test_add_secret_invalid_key(self, service: Service) -> None:
+    @pytest.mark.parametrize("key", ["!@#", ".", "..", "...", " ", "\n", "\t", ""])
+    async def test_add_secret_invalid_key(self, service: Service, key: str) -> None:
         user = User(name=random_name())
-        secret = Secret("!@#", base64.b64encode(b"testvalue").decode())
-        with pytest.raises(ValueError, match="Secret key '!@#' or its value not valid"):
+        secret = Secret(key, base64.b64encode(b"testvalue").decode())
+        with pytest.raises(ValueError, match="Secret key '.*' or its value not valid"):
             await service.add_secret(user, secret)
+
+    @pytest.mark.parametrize("key", ["-", "_", ".-"])
+    async def test_add_secret_valid_key(self, service: Service, key: str) -> None:
+        user = User(name=random_name())
+        secret = Secret(key, base64.b64encode(b"testvalue").decode())
+        await service.add_secret(user, secret)
 
     async def test_add_secret_invalid_value(self, service: Service) -> None:
         user = User(name=random_name())

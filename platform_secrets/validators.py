@@ -3,7 +3,7 @@ import base64
 import trafaret as t
 
 
-SECRET_KEY_PATTERN = r"\A[a-zA-Z0-9_\-\.]+\Z"
+SECRET_KEY_PATTERN = r"\A(?!\.\Z|\.\.)[a-zA-Z0-9_\-\.]*\Z"
 
 
 def check_base64(value: str) -> str:

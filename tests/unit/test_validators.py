@@ -7,7 +7,9 @@ from platform_secrets.validators import (
 )
 
 
-@pytest.mark.parametrize("key", ["", "?", "\n", "\t", " "])
+@pytest.mark.parametrize(
+    "key", ["", "?", "\n", "\t", " ", ".", "..", "...", "..-", "/", "\\"]
+)
 def test_secret_request_validator__invalid_key(key: str) -> None:
     validator = secret_request_validator
     payload = {"key": key, "value": "vvvv"}
@@ -23,7 +25,7 @@ def test_secret_request_validator__invalid_key_too_long() -> None:
         validator.check(payload)
 
 
-@pytest.mark.parametrize("key", ["a", ".", "-", "_", "0", "A"])
+@pytest.mark.parametrize("key", ["a", ".-", "-", "_", "0", "A"])
 def test_secret_request_validator__valid_key(key: str) -> None:
     validator = secret_request_validator
     payload = {"key": key, "value": "vvvv"}
