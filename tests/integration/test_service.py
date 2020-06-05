@@ -19,14 +19,14 @@ class TestService:
     async def test_add_secret_invalid_key(self, service: Service) -> None:
         user = User(name=random_name())
         secret = Secret("!@#", base64.b64encode(b"testvalue").decode())
-        with pytest.raises(ValueError, match="Secret key '!@#' not valid"):
+        with pytest.raises(ValueError, match="Secret key '!@#' or its value not valid"):
             await service.add_secret(user, secret)
 
     async def test_add_secret_invalid_value(self, service: Service) -> None:
         user = User(name=random_name())
         secret = Secret("testkey", "testvalue")
         with pytest.raises(
-            ValueError, match="Secret value for key 'testkey' not valid"
+            ValueError, match="Secret key 'testkey' or its value not valid"
         ):
             await service.add_secret(user, secret)
 
@@ -48,6 +48,32 @@ class TestService:
 
         secrets = await service.get_secrets(user)
         assert not secrets
+
+    async def test_add_secret_max_key(self, service: Service) -> None:
+        user = User(name=random_name())
+
+        secret = Secret("a" * 253, base64.b64encode(b"testvalue1").decode())
+        await service.add_secret(user, secret)
+
+        secret = Secret("a" * 254, base64.b64encode(b"testvalue1").decode())
+        with pytest.raises(
+            ValueError, match=f"Secret key '{secret.key}' or its value not valid"
+        ):
+            await service.add_secret(user, secret)
+
+    async def test_add_secret_max_value(self, service: Service) -> None:
+        user = User(name=random_name())
+
+        secret = Secret("a" * 253, base64.b64encode(b"v" * 1 * 1024 * 1024).decode())
+        await service.add_secret(user, secret)
+
+        secret = Secret(
+            "a" * 253, base64.b64encode(b"v" * (1 * 1024 * 1024 + 1)).decode()
+        )
+        with pytest.raises(
+            ValueError, match=f"Secret key '{secret.key}' or its value not valid"
+        ):
+            await service.add_secret(user, secret)
 
     async def test_add_secret_replace(self, service: Service) -> None:
         user = User(name=random_name())

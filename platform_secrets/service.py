@@ -41,10 +41,8 @@ class Service:
                 await self._kube_client.create_secret(
                     secret_name, {secret.key: secret.value}
                 )
-        except ResourceInvalid:
-            raise ValueError(f"Secret key {secret.key!r} not valid")
-        except ResourceBadRequest:
-            raise ValueError(f"Secret value for key {secret.key!r} not valid")
+        except (ResourceInvalid, ResourceBadRequest):
+            raise ValueError(f"Secret key {secret.key!r} or its value not valid")
 
     async def remove_secret(self, user: User, secret: Secret) -> None:
         secret_name = self._get_kube_secret_name(user)
