@@ -23,7 +23,7 @@ class TestService:
         with pytest.raises(ValueError, match="Secret key '.*' or its value not valid"):
             await service.add_secret(user, secret)
 
-    @pytest.mark.parametrize("key", ["-", "_", ".-"])
+    @pytest.mark.parametrize("key", ["-", "_", ".-", "0"])
     async def test_add_secret_valid_key(self, service: Service, key: str) -> None:
         user = User(name=random_name())
         secret = Secret(key, base64.b64encode(b"testvalue").decode())
