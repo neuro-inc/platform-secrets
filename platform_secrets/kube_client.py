@@ -1,5 +1,7 @@
+import json
 import logging
 import ssl
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import urlsplit
@@ -170,7 +172,11 @@ class KubeClient:
             "data": data,
             "type": "Opaque",
         }
-        payload = await self._request(method="POST", url=url, json=payload)
+        headers = {"Content-Type": "application/json"}
+        req_data = BytesIO(json.dumps(payload).encode())
+        payload = await self._request(
+            method="POST", url=url, headers=headers, data=req_data
+        )
         self._raise_for_status(payload)
 
     async def add_secret_key(
@@ -184,8 +190,9 @@ class KubeClient:
         url = self._generate_secret_url(secret_name, namespace_name)
         headers = {"Content-Type": "application/json-patch+json"}
         patches = [{"op": "replace", "path": f"/data/{key}", "value": value}]
+        req_data = BytesIO(json.dumps(patches).encode())
         payload = await self._request(
-            method="PATCH", url=url, headers=headers, json=patches
+            method="PATCH", url=url, headers=headers, data=req_data
         )
         self._raise_for_status(payload)
 
