@@ -17,7 +17,7 @@ from yarl import URL
 
 from platform_secrets.api import create_auth_client
 from platform_secrets.config import PlatformAuthConfig
-from tests.integration.conftest import get_service_url, random_str
+from tests.integration.conftest import get_service_url, random_name
 
 
 @pytest.fixture(scope="session")
@@ -76,7 +76,7 @@ async def regular_user_factory(
 ) -> AsyncIterator[Callable[[Optional[str]], Awaitable[_User]]]:
     async def _factory(name: Optional[str] = None) -> _User:
         if not name:
-            name = f"user-{random_str(8)}"
+            name = f"user-{random_name()}"
         user = AuthClientUser(name=name, cluster_name=cluster_name)
         await auth_client.add_user(user, token=admin_token)
         # Grant permissions to the user home directory

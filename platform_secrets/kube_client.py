@@ -1,7 +1,7 @@
 import logging
 import ssl
 from pathlib import Path
-from typing import Any, Dict, NoReturn, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlsplit
 
 import aiohttp
@@ -16,15 +16,15 @@ class KubeClientException(Exception):
     pass
 
 
-class JobException(Exception):
+class ResourceNotFound(KubeClientException):
     pass
 
 
-class JobError(JobException):
+class ResourceInvalid(KubeClientException):
     pass
 
 
-class JobNotFoundException(JobException):
+class ResourceBadRequest(KubeClientException):
     pass
 
 
@@ -121,43 +121,89 @@ class KubeClient:
     def _api_v1_url(self) -> str:
         return f"{self._base_url}/api/v1"
 
-    def _generate_namespace_url(self, namespace_name: str) -> str:
+    def _generate_namespace_url(self, namespace_name: Optional[str] = None) -> str:
+        namespace_name = namespace_name or self._namespace
         return f"{self._api_v1_url}/namespaces/{namespace_name}"
 
-    @property
-    def _namespace_url(self) -> str:
-        return self._generate_namespace_url(self._namespace)
+    def _generate_all_secrets_url(self, namespace_name: Optional[str] = None) -> str:
+        namespace_url = self._generate_namespace_url(namespace_name)
+        return f"{namespace_url}/secrets"
+
+    def _generate_secret_url(
+        self, secret_name: str, namespace_name: Optional[str] = None
+    ) -> str:
+        all_secrets_url = self._generate_all_secrets_url(namespace_name)
+        return f"{all_secrets_url}/{secret_name}"
 
     async def _request(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         assert self._client, "client is not initialized"
         async with self._client.request(*args, **kwargs) as response:
             # TODO (A Danshyn 05/21/18): check status code etc
             payload = await response.json()
-            logger.debug("k8s response payload: %s", payload)
+            # logger.debug("k8s response payload: %s", payload)
             return payload
 
-    async def _check_response_status(self, response: aiohttp.ClientResponse) -> None:
-        if response.status != 200:
-            payload = await response.text()
-            raise KubeClientException(payload)
-
-    def _assert_resource_kind(
-        self, expected_kind: str, payload: Dict[str, Any]
-    ) -> None:
+    def _raise_for_status(self, payload: Dict[str, Any]) -> None:
         kind = payload["kind"]
         if kind == "Status":
-            self._raise_status_job_exception(payload, job_id="")
-        elif kind != expected_kind:
-            raise ValueError(f"unknown kind: {kind}")
+            code = payload["code"]
+            if code == 400:
+                raise ResourceBadRequest(payload["message"])
+            if code == 404:
+                raise ResourceNotFound(payload["message"])
+            if code == 422:
+                raise ResourceInvalid(payload["message"])
+            raise KubeClientException(str(payload))
 
-    def _raise_status_job_exception(
-        self, pod: Dict[str, Any], job_id: Optional[str]
-    ) -> NoReturn:
-        if pod["code"] == 409:
-            raise JobError(f"job '{job_id}' already exist")
-        elif pod["code"] == 404:
-            raise JobNotFoundException(f"job '{job_id}' was not found")
-        elif pod["code"] == 422:
-            raise JobError(f"can not create job with id '{job_id}'")
-        else:
-            raise JobError("unexpected error")
+    async def create_secret(
+        self,
+        secret_name: str,
+        data: Dict[str, str],
+        *,
+        namespace_name: Optional[str] = None,
+    ) -> None:
+        url = self._generate_all_secrets_url(namespace_name)
+        payload = {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": {"name": secret_name},
+            "data": data,
+            "type": "Opaque",
+        }
+        payload = await self._request(method="POST", url=url, json=payload)
+        self._raise_for_status(payload)
+
+    async def add_secret_key(
+        self,
+        secret_name: str,
+        key: str,
+        value: str,
+        *,
+        namespace_name: Optional[str] = None,
+    ) -> None:
+        url = self._generate_secret_url(secret_name, namespace_name)
+        headers = {"Content-Type": "application/json-patch+json"}
+        patches = [{"op": "replace", "path": f"/data/{key}", "value": value}]
+        payload = await self._request(
+            method="PATCH", url=url, headers=headers, json=patches
+        )
+        self._raise_for_status(payload)
+
+    async def remove_secret_key(
+        self, secret_name: str, key: str, *, namespace_name: Optional[str] = None
+    ) -> None:
+        url = self._generate_secret_url(secret_name, namespace_name)
+        headers = {"Content-Type": "application/json-patch+json"}
+        patches = [{"op": "remove", "path": f"/data/{key}"}]
+        payload = await self._request(
+            method="PATCH", url=url, headers=headers, json=patches
+        )
+        self._raise_for_status(payload)
+
+    async def get_secret(
+        self, secret_name: str, *, namespace_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        url = self._generate_secret_url(secret_name, namespace_name)
+        payload = await self._request(method="GET", url=url)
+        self._raise_for_status(payload)
+        return payload

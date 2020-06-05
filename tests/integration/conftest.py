@@ -1,10 +1,10 @@
 import logging
+import secrets
 import subprocess
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Callable
-from uuid import uuid1
 
 import aiohttp
 import aiohttp.web
@@ -28,8 +28,8 @@ pytest_plugins = [
 ]
 
 
-def random_str(length: int = 8) -> str:
-    return str(uuid1())[:length]
+def random_name(length: int = 8) -> str:
+    return secrets.token_hex(length // 2 + length % 2)[:length]
 
 
 @pytest.fixture
