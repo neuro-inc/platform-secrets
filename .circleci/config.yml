@@ -48,15 +48,11 @@ jobs:
 
             make install_k8s
             make start_k8s
-            make apply_configuration_k8s
-            make test_k8s
-
-      - run:
-          name: Pulling Docker Images
-          command: |
             # docker-credential-gcloud still relies on Python 2.7,
             # thus we'd better pull testing images before we set up Python 3
             make gke_docker_pull_test_images
+            make apply_configuration_k8s
+            make test_k8s
 
       - run:
           name: Setting up Python Virtual Environment
