@@ -71,23 +71,26 @@ async def regular_user_factory(
     auth_client: AuthClient,
     token_factory: Callable[[str], str],
     admin_token: str,
-    compute_token: str,
     cluster_name: str,
 ) -> AsyncIterator[Callable[[Optional[str]], Awaitable[_User]]]:
-    async def _factory(name: Optional[str] = None) -> _User:
+    async def _factory(name: Optional[str] = None, skip_grant: bool = False) -> _User:
         if not name:
             name = f"user-{random_name()}"
         user = AuthClientUser(name=name, cluster_name=cluster_name)
         await auth_client.add_user(user, token=admin_token)
-        # Grant permissions to the user home directory
-        headers = auth_client._generate_headers(compute_token)
-        payload = [
-            {"uri": f"job://{cluster_name}/{name}", "action": "manage"},
-        ]
-        async with auth_client._request(
-            "POST", f"/api/v1/users/{name}/permissions", headers=headers, json=payload
-        ) as p:
-            assert p.status == 201
+        if not skip_grant:
+            # Grant permissions to the user home directory
+            headers = auth_client._generate_headers(admin_token)
+            payload = [
+                {"uri": f"secret://{cluster_name}/{name}", "action": "write"},
+            ]
+            async with auth_client._request(
+                "POST",
+                f"/api/v1/users/{name}/permissions",
+                headers=headers,
+                json=payload,
+            ) as p:
+                assert p.status == 201
         return _User(name=user.name, token=token_factory(user.name))  # type: ignore
 
     yield _factory
