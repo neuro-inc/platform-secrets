@@ -142,7 +142,6 @@ class KubeClient:
         async with self._client.request(*args, **kwargs) as response:
             # TODO (A Danshyn 05/21/18): check status code etc
             payload = await response.json()
-            # logger.debug("k8s response payload: %s", payload)
             return payload
 
     def _raise_for_status(self, payload: Dict[str, Any]) -> None:

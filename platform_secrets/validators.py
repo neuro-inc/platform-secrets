@@ -22,3 +22,4 @@ secret_request_validator = t.Dict(
     {"key": secret_key_validator, "value": secret_value_validator}
 )
 secret_response_validator = t.Dict({"key": t.String})
+secret_list_response_validator = t.List(secret_response_validator)
