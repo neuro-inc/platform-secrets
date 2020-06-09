@@ -1,15 +1,27 @@
 from dataclasses import dataclass
-from typing import AsyncIterator, Callable
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict
+from unittest import mock
 
 import aiohttp
 import pytest
 from aiohttp.web import HTTPOk
-from aiohttp.web_exceptions import HTTPForbidden, HTTPUnauthorized
+from aiohttp.web_exceptions import (
+    HTTPBadRequest,
+    HTTPCreated,
+    HTTPForbidden,
+    HTTPNoContent,
+    HTTPNotFound,
+    HTTPUnauthorized,
+)
 
 from platform_secrets.api import create_app
 from platform_secrets.config import Config
 
 from .conftest import ApiAddress, create_local_app_server
+from .conftest_auth import _User
+
+
+pytestmark = pytest.mark.asyncio
 
 
 @dataclass(frozen=True)
@@ -41,7 +53,6 @@ async def secrets_api(config: Config) -> AsyncIterator[SecretsApiEndpoints]:
 
 
 class TestApi:
-    @pytest.mark.asyncio
     async def test_ping(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
@@ -50,7 +61,6 @@ class TestApi:
             text = await resp.text()
             assert text == "Pong"
 
-    @pytest.mark.asyncio
     async def test_secured_ping(
         self,
         secrets_api: SecretsApiEndpoints,
@@ -63,7 +73,6 @@ class TestApi:
             text = await resp.text()
             assert text == "Secured Pong"
 
-    @pytest.mark.asyncio
     async def test_secured_ping_no_token_provided_unauthorized(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
@@ -71,7 +80,6 @@ class TestApi:
         async with client.get(url) as resp:
             assert resp.status == HTTPUnauthorized.status_code
 
-    @pytest.mark.asyncio
     async def test_secured_ping_non_existing_token_unauthorized(
         self,
         secrets_api: SecretsApiEndpoints,
@@ -84,7 +92,6 @@ class TestApi:
         async with client.get(url, headers=headers) as resp:
             assert resp.status == HTTPUnauthorized.status_code
 
-    @pytest.mark.asyncio
     async def test_ping_unknown_origin(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
@@ -94,7 +101,6 @@ class TestApi:
             assert response.status == HTTPOk.status_code, await response.text()
             assert "Access-Control-Allow-Origin" not in response.headers
 
-    @pytest.mark.asyncio
     async def test_ping_allowed_origin(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
@@ -106,7 +112,6 @@ class TestApi:
             assert resp.headers["Access-Control-Allow-Credentials"] == "true"
             assert resp.headers["Access-Control-Expose-Headers"] == ""
 
-    @pytest.mark.asyncio
     async def test_ping_options_no_headers(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
@@ -117,7 +122,6 @@ class TestApi:
                 "origin header is not specified in the request"
             )
 
-    @pytest.mark.asyncio
     async def test_ping_options_unknown_origin(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
@@ -134,7 +138,6 @@ class TestApi:
                 "origin 'http://unknown' is not allowed"
             )
 
-    @pytest.mark.asyncio
     async def test_ping_options(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
@@ -149,3 +152,231 @@ class TestApi:
             assert resp.headers["Access-Control-Allow-Origin"] == "https://neu.ro"
             assert resp.headers["Access-Control-Allow-Credentials"] == "true"
             assert resp.headers["Access-Control-Allow-Methods"] == "GET"
+
+    async def test_get_secrets__unauthorized(
+        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
+    ) -> None:
+        async with client.get(secrets_api.endpoint) as resp:
+            assert resp.status == HTTPUnauthorized.status_code, await resp.text()
+
+    async def test_get_secrets__forbidden(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory(skip_grant=True)
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPForbidden.status_code, await resp.text()
+
+    async def test_get_secrets__none(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory()
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == []
+
+    async def test_post_secret__unauthorized(
+        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
+    ) -> None:
+        async with client.post(secrets_api.endpoint) as resp:
+            assert resp.status == HTTPUnauthorized.status_code, await resp.text()
+
+    async def test_post_secret__forbidden(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory(skip_grant=True)
+        async with client.post(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPForbidden.status_code, await resp.text()
+
+    async def test_post_secret__unprocessible_payload(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory()
+        async with client.post(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPBadRequest.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"error": mock.ANY}
+            assert "Expecting value" in resp_payload["error"]
+
+    async def test_post_secret__invalid_payload(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory()
+        payload: Dict[str, Any] = {}
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPBadRequest.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"error": mock.ANY}
+            assert "is required" in resp_payload["error"]
+
+    async def test_post_secret(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory()
+        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"key": "kkkk"}
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == [{"key": "kkkk"}]
+
+    async def test_post_secret_replace_remove(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory()
+
+        payload: Dict[str, Any] = {"key": "k1", "value": "vvvv"}
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"key": "k1"}
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            resp_payload = sorted(resp_payload, key=lambda s: s["key"])
+            assert resp_payload == [{"key": "k1"}]
+
+        payload = {"key": "k2", "value": "vvvv"}
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"key": "k2"}
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            resp_payload = sorted(resp_payload, key=lambda s: s["key"])
+            assert resp_payload == [
+                {"key": "k1"},
+                {"key": "k2"},
+            ]
+
+        payload = {"key": "k1", "value": "rrrr"}
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"key": "k1"}
+
+        payload = {"key": "k1", "value": "rrrr"}
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"key": "k1"}
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            resp_payload = sorted(resp_payload, key=lambda s: s["key"])
+            assert resp_payload == [
+                {"key": "k1"},
+                {"key": "k2"},
+            ]
+
+        async with client.delete(
+            secrets_api.endpoint + "/k1", headers=user.headers
+        ) as resp:
+            assert resp.status == HTTPNoContent.status_code, await resp.text()
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            resp_payload = sorted(resp_payload, key=lambda s: s["key"])
+            assert resp_payload == [
+                {"key": "k2"},
+            ]
+
+        async with client.delete(
+            secrets_api.endpoint + "/k2", headers=user.headers
+        ) as resp:
+            assert resp.status == HTTPNoContent.status_code, await resp.text()
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            resp_payload = sorted(resp_payload, key=lambda s: s["key"])
+            assert resp_payload == []
+
+    async def test_delete_secret__unauthorized(
+        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
+    ) -> None:
+        async with client.delete(secrets_api.endpoint + "/key") as resp:
+            assert resp.status == HTTPUnauthorized.status_code, await resp.text()
+
+    async def test_delete_secret__forbidden(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory(skip_grant=True)
+        async with client.delete(
+            secrets_api.endpoint + "/key", headers=user.headers
+        ) as resp:
+            assert resp.status == HTTPForbidden.status_code, await resp.text()
+
+    async def test_delete_secret__invalid_key(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory()
+        async with client.delete(
+            secrets_api.endpoint + "/...", headers=user.headers
+        ) as resp:
+            assert resp.status == HTTPBadRequest.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"error": mock.ANY}
+            assert "does not match pattern" in resp_payload["error"]
+
+    async def test_delete_secret__not_found(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory()
+        async with client.delete(
+            secrets_api.endpoint + "/unknown", headers=user.headers
+        ) as resp:
+            assert resp.status == HTTPNotFound.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"error": "Secret 'unknown' not found"}

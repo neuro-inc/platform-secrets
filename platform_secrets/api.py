@@ -1,13 +1,16 @@
 import logging
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, Awaitable, Callable
+from typing import AsyncIterator, Awaitable, Callable, Dict
 
 import aiohttp
 import aiohttp.web
 import aiohttp_cors
 from aiohttp.web import (
     HTTPBadRequest,
+    HTTPCreated,
     HTTPInternalServerError,
+    HTTPNoContent,
+    HTTPNotFound,
     Request,
     Response,
     StreamResponse,
@@ -15,13 +18,21 @@ from aiohttp.web import (
     middleware,
 )
 from aiohttp_security import check_authorized
-from neuro_auth_client import AuthClient
+from neuro_auth_client import AuthClient, Permission, User, check_permissions
 from neuro_auth_client.security import AuthScheme, setup_security
 from platform_logging import init_logging
 
 from .config import Config, CORSConfig, KubeConfig, PlatformAuthConfig
 from .config_factory import EnvironConfigFactory
+from .identity import untrusted_user
 from .kube_client import KubeClient
+from .service import Secret, SecretNotFound, Service
+from .validators import (
+    secret_key_validator,
+    secret_list_response_validator,
+    secret_request_validator,
+    secret_response_validator,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +61,65 @@ class SecretsApiHandler:
         self._config = config
 
     def register(self, app: aiohttp.web.Application) -> None:
-        pass
+        app.add_routes(
+            [
+                aiohttp.web.post("", self.handle_post),
+                aiohttp.web.get("", self.handle_get_all),
+                aiohttp.web.delete("/{key}", self.handle_delete),
+            ]
+        )
+
+    @property
+    def _service(self) -> Service:
+        return self._app["service"]
+
+    async def _get_untrusted_user(self, request: Request) -> User:
+        identity = await untrusted_user(request)
+        return User(name=identity.name)
+
+    def _get_user_secrets_uri(self, user: User) -> str:
+        return f"secret://{self._config.cluster_name}/{user.name}"
+
+    def _get_user_secrets_read_perm(self, user: User) -> Permission:
+        return Permission(self._get_user_secrets_uri(user), "read")
+
+    def _get_user_secrets_write_perm(self, user: User) -> Permission:
+        return Permission(self._get_user_secrets_uri(user), "write")
+
+    def _convert_secret_to_payload(self, secret: Secret) -> Dict[str, str]:
+        return {"key": secret.key}
+
+    async def handle_post(self, request: Request) -> Response:
+        user = await self._get_untrusted_user(request)
+        await check_permissions(request, [self._get_user_secrets_write_perm(user)])
+        payload = await request.json()
+        payload = secret_request_validator.check(payload)
+        secret = Secret(key=payload["key"], value=payload["value"])
+        await self._service.add_secret(user, secret)
+        resp_payload = self._convert_secret_to_payload(secret)
+        resp_payload = secret_response_validator.check(resp_payload)
+        return json_response(resp_payload, status=HTTPCreated.status_code)
+
+    async def handle_get_all(self, request: Request) -> Response:
+        user = await self._get_untrusted_user(request)
+        await check_permissions(request, [self._get_user_secrets_read_perm(user)])
+        secrets = await self._service.get_secrets(user)
+        resp_payload = [self._convert_secret_to_payload(secret) for secret in secrets]
+        resp_payload = secret_list_response_validator.check(resp_payload)
+        return json_response(resp_payload)
+
+    async def handle_delete(self, request: Request) -> Response:
+        user = await self._get_untrusted_user(request)
+        await check_permissions(request, [self._get_user_secrets_write_perm(user)])
+        secret_key = request.match_info["key"]
+        secret_key = secret_key_validator.check(secret_key)
+        secret = Secret(key=secret_key)
+        try:
+            await self._service.remove_secret(user, secret)
+        except SecretNotFound as exc:
+            resp_payload = {"error": str(exc)}
+            return json_response(resp_payload, status=HTTPNotFound.status_code)
+        raise HTTPNoContent()
 
 
 @middleware
@@ -151,7 +220,9 @@ async def create_app(config: Config) -> aiohttp.web.Application:
             kube_client = await exit_stack.enter_async_context(
                 create_kube_client(config.kube)
             )
-            app["secrets_app"]["kube_client"] = kube_client
+
+            logger.info("Initializing Service")
+            app["secrets_app"]["service"] = Service(kube_client)
 
             yield
 
