@@ -1,5 +1,5 @@
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Sequence
 
 from yarl import URL
@@ -14,7 +14,7 @@ class ServerConfig:
 @dataclass(frozen=True)
 class PlatformAuthConfig:
     url: URL
-    token: str
+    token: str = field(repr=False)
 
 
 class KubeClientAuthType(str, enum.Enum):
@@ -31,12 +31,12 @@ class CORSConfig:
 @dataclass(frozen=True)
 class KubeConfig:
     endpoint_url: str
-    cert_authority_data_pem: Optional[str] = None
+    cert_authority_data_pem: Optional[str] = field(repr=False, default=None)
     cert_authority_path: Optional[str] = None
     auth_type: KubeClientAuthType = KubeClientAuthType.CERTIFICATE
     auth_cert_path: Optional[str] = None
     auth_cert_key_path: Optional[str] = None
-    token: Optional[str] = None
+    token: Optional[str] = field(repr=False, default=None)
     namespace: str = "default"
     client_conn_timeout_s: int = 300
     client_read_timeout_s: int = 300
