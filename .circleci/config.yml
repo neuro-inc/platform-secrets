@@ -117,11 +117,15 @@ jobs:
       - run:
           name: Artifactory Docker Push
           command: |
+            # TODO: remove
+            export CIRCLE_TAG=artifactory/20200610
             make artifactory_docker_push
 
       - run:
           name: Artifactory Helm Push
           command: |
+            # TODO: remove
+            export CIRCLE_TAG=artifactory/20200610
             make artifactory_helm_push
 
 
@@ -168,7 +172,8 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                # - master
+                - cd
       - aws_deploy:
           context: org-dev
           requires:
