@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import List
 
@@ -9,6 +10,9 @@ from .kube_client import (
     ResourceInvalid,
     ResourceNotFound,
 )
+
+
+logger = logging.getLogger()
 
 
 class SecretNotFound(Exception):
@@ -42,6 +46,7 @@ class Service:
                     secret_name, {secret.key: secret.value}
                 )
         except (ResourceInvalid, ResourceBadRequest):
+            logger.exception(f"Failed to add/replace secret key {secret.key!r}")
             raise ValueError(f"Secret key {secret.key!r} or its value not valid")
 
     async def remove_secret(self, user: User, secret: Secret) -> None:
