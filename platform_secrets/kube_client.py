@@ -154,9 +154,9 @@ class KubeClient:
         if kind == "Status":
             code = payload["code"]
             if code == 400:
-                raise ResourceBadRequest(payload["message"])
+                raise ResourceBadRequest(payload)
             if code == 404:
-                raise ResourceNotFound(payload["message"])
+                raise ResourceNotFound(payload)
             if code == 422:
                 raise ResourceInvalid(payload["message"])
             raise KubeClientException(payload["message"])
