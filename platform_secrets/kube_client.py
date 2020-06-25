@@ -14,6 +14,9 @@ from .config import KubeClientAuthType
 logger = logging.getLogger(__name__)
 
 
+SECRET_DUMMY_KEY = "---neuro---"
+
+
 class KubeClientException(Exception):
     pass
 
@@ -63,6 +66,8 @@ class KubeClient:
         self._read_timeout_s = read_timeout_s
         self._conn_pool_size = conn_pool_size
         self._client: Optional[aiohttp.ClientSession] = None
+
+        self._dummy_secret_key = SECRET_DUMMY_KEY
 
     @property
     def _is_ssl(self) -> bool:
@@ -149,12 +154,12 @@ class KubeClient:
         if kind == "Status":
             code = payload["code"]
             if code == 400:
-                raise ResourceBadRequest(payload)
+                raise ResourceBadRequest(payload["message"])
             if code == 404:
-                raise ResourceNotFound(payload)
+                raise ResourceNotFound(payload["message"])
             if code == 422:
-                raise ResourceInvalid(payload)
-            raise KubeClientException(str(payload))
+                raise ResourceInvalid(payload["message"])
+            raise KubeClientException(payload["message"])
 
     async def create_secret(
         self,
@@ -164,6 +169,8 @@ class KubeClient:
         namespace_name: Optional[str] = None,
     ) -> None:
         url = self._generate_all_secrets_url(namespace_name)
+        data = data.copy()
+        data[self._dummy_secret_key] = ""
         payload = {
             "apiVersion": "v1",
             "kind": "Secret",
@@ -188,7 +195,7 @@ class KubeClient:
     ) -> None:
         url = self._generate_secret_url(secret_name, namespace_name)
         headers = {"Content-Type": "application/json-patch+json"}
-        patches = [{"op": "replace", "path": f"/data/{key}", "value": value}]
+        patches = [{"op": "add", "path": f"/data/{key}", "value": value}]
         req_data = BytesIO(json.dumps(patches).encode())
         payload = await self._request(
             method="PATCH", url=url, headers=headers, data=req_data
@@ -212,4 +219,7 @@ class KubeClient:
         url = self._generate_secret_url(secret_name, namespace_name)
         payload = await self._request(method="GET", url=url)
         self._raise_for_status(payload)
+        data = payload.get("data", {})
+        data.pop(self._dummy_secret_key, None)
+        payload["data"] = data
         return payload

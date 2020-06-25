@@ -2,8 +2,16 @@ import base64
 
 import trafaret as t
 
+from .kube_client import SECRET_DUMMY_KEY
+
 
 SECRET_KEY_PATTERN = r"\A(?!\.\Z|\.\.)[a-zA-Z0-9_\-.]+\Z"
+
+
+def check_key(value: str) -> str:
+    if value.lower() == SECRET_DUMMY_KEY:
+        raise t.DataError(f"Illegal key {value!r}")
+    return value
 
 
 def check_base64(value: str) -> str:
@@ -14,8 +22,8 @@ def check_base64(value: str) -> str:
     return value
 
 
-secret_key_validator = t.String(min_length=1, max_length=253) & t.Regexp(
-    SECRET_KEY_PATTERN
+secret_key_validator = (
+    t.String(min_length=1, max_length=253) & t.Regexp(SECRET_KEY_PATTERN) >> check_key
 )
 secret_value_validator = t.String(max_length=1024 * 1024) >> check_base64
 secret_request_validator = t.Dict(

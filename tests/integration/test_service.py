@@ -128,6 +128,20 @@ class TestService:
         secrets = await service.get_secrets(user2)
         assert set(secrets) == {Secret("testkey3")}
 
+    async def test_add_remove_add_secret(self, service: Service) -> None:
+        user1 = User(name=random_name())
+        secret1 = Secret("testkey1", base64.b64encode(b"value").decode())
+        await service.add_secret(user1, secret1)
+
+        await service.remove_secret(user1, secret1)
+
+        secrets = await service.get_secrets(user1)
+        assert set(secrets) == set()
+
+        await service.add_secret(user1, secret1)
+        secrets = await service.get_secrets(user1)
+        assert set(secrets) == {Secret("testkey1")}
+
     async def test_get_secrets_empty(self, service: Service) -> None:
         user = User(name=random_name())
         secrets = await service.get_secrets(user)

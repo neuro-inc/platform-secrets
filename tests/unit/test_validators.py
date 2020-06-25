@@ -2,13 +2,15 @@ import pytest
 import trafaret as t
 
 from platform_secrets.validators import (
+    SECRET_DUMMY_KEY,
     secret_request_validator,
     secret_response_validator,
 )
 
 
 @pytest.mark.parametrize(
-    "key", ["", "?", "\n", "\t", " ", ".", "..", "...", "..-", "/", "\\"]
+    "key",
+    ["", "?", "\n", "\t", " ", ".", "..", "...", "..-", "/", "\\", SECRET_DUMMY_KEY],
 )
 def test_secret_request_validator__invalid_key(key: str) -> None:
     validator = secret_request_validator
