@@ -61,7 +61,6 @@ jobs:
       - name: Run integration tests
         run: |
           make test_integration
-          make test_integration_minikube
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
