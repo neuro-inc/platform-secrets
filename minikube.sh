@@ -8,7 +8,7 @@ export GKE_PROJECT_ID=light-reality-205619
 function minikube::start {
     echo "Starting minikube..."
     minikube config set WantUpdateNotification false
-    minikube start --kubernetes-version=v1.13.0
+    minikube start --kubernetes-version=v1.14.10
     kubectl config use-context minikube
 }
 
