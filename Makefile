@@ -56,15 +56,15 @@ ecr_login:
 
 aws_docker_push: build ecr_login
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE_AWS):latest
-	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE_AWS):$(CIRCLE_SHA1)
+	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE_AWS):$(GITHUB_SHA)
 	docker push $(IMAGE_AWS):latest
-	docker push $(IMAGE_AWS):$(CIRCLE_SHA1)
+	docker push $(IMAGE_AWS):$(GITHUB_SHA)
 
 _helm:
 	curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash -s -- -v v2.11.0
 
 aws_k8s_deploy: _helm
-	helm -f deploy/platformsecrets/values-$(HELM_ENV).yaml --set "IMAGE=$(IMAGE_AWS):$(CIRCLE_SHA1)" upgrade --install platformsecrets deploy/platformsecrets/ --namespace platform --wait --timeout 600
+	helm -f deploy/platformsecrets/values-$(HELM_ENV).yaml --set "IMAGE=$(IMAGE_AWS):$(GITHUB_SHA)" upgrade --install platformsecrets deploy/platformsecrets/ --namespace platform --wait --timeout 600
 
 artifactory_docker_push: build
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(ARTIFACTORY_DOCKER_REPO)/$(IMAGE_NAME):$(ARTIFACTORY_TAG)
