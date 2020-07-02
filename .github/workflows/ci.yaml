@@ -33,13 +33,6 @@ jobs:
         run: make lint
       - name: Run unit tests
         run: make test_unit
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: .coverage-unit.xml
-          flags: unit
-          name: codecov-unit
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -61,13 +54,6 @@ jobs:
       - name: Run integration tests
         run: |
           make test_integration
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: .coverage-integration.xml
-          flags: integration
-          name: codecov-integration
   deploy_dev:
     name: Deploy on dev
     runs-on: ubuntu-latest
