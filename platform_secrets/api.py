@@ -52,7 +52,7 @@ class ApiHandler:
 
     async def handle_secured_ping(self, request: Request) -> Response:
         await check_authorized(request)
-        return Response(text=f"Secured Pong")
+        return Response(text="Secured Pong")
 
 
 class SecretsApiHandler:
