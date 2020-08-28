@@ -40,7 +40,7 @@ async def client() -> AsyncIterator[aiohttp.ClientSession]:
 
 @pytest.fixture
 def config_factory(
-    auth_config: PlatformAuthConfig, kube_config: KubeConfig, cluster_name: str,
+    auth_config: PlatformAuthConfig, kube_config: KubeConfig, cluster_name: str
 ) -> Callable[..., Config]:
     def _f(**kwargs: Any) -> Config:
         defaults = dict(
@@ -57,7 +57,7 @@ def config_factory(
 
 
 @pytest.fixture
-def config(config_factory: Callable[..., Config],) -> Config:
+def config(config_factory: Callable[..., Config]) -> Config:
     return config_factory()
 
 
