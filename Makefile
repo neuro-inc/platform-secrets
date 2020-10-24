@@ -4,7 +4,7 @@ ARTIFACTORY_TAG ?= $(shell echo "$(GITHUB_REF)" | awk -F/ '{print $$NF}')
 
 CLOUD_REPO_gke   ?= $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)
 CLOUD_REPO_aws   ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-CLOUD_REPO_azure ?= $(AZURE_DEV_ACR_NAME).azurecr.io
+CLOUD_REPO_azure ?= $(AZURE_ACR_NAME).azurecr.io
 
 CLOUD_REPO  = ${CLOUD_REPO_${CLOUD_PROVIDER}}
 CLOUD_IMAGE = $(CLOUD_REPO)/$(IMAGE_NAME)
@@ -57,7 +57,7 @@ aws_k8s_login:
 	aws eks --region $(AWS_REGION) update-kubeconfig --name $(AWS_CLUSTER_NAME)
 
 azure_k8s_login:
-	az aks get-credentials --resource-group $(AZURE_DEV_RG_NAME) --name $(CLUSTER_NAME)
+	az aks get-credentials --resource-group $(AZURE_RG_NAME) --name $(CLUSTER_NAME)
 
 docker_push: build
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(CLOUD_IMAGE):latest
