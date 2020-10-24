@@ -1,18 +1,13 @@
 IMAGE_NAME ?= platformsecrets
 IMAGE_TAG ?= latest
 ARTIFACTORY_TAG ?= $(shell echo "$(GITHUB_REF)" | awk -F/ '{print $$NF}')
-#IMAGE ?= $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)/$(IMAGE_NAME)
-#IMAGE_AWS ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(IMAGE_NAME)
 
 CLOUD_REPO_gke   ?= $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)
 CLOUD_REPO_aws   ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 CLOUD_REPO_azure ?= $(AZURE_DEV_ACR_NAME).azurecr.io
 
 CLOUD_REPO  = ${CLOUD_REPO_${CLOUD_PROVIDER}}
-CLOUD_IMAGE  = $(CLOUD_REPO)/$(IMAGE_NAME)
-
-PLATFORMAUTHAPI_TAG_aws=1deed1143a3cdf00a7522ad7d40d7794dcfe7ef1
-PLATFORMAUTHAPI_TAG_azure=aac46b318399afa022fc86ba37f8d8b7ca4b9d8a
+CLOUD_IMAGE = $(CLOUD_REPO)/$(IMAGE_NAME)
 
 PLATFORMAUTHAPI_TAG  = ${PLATFORMAUTHAPI_TAG_${CLOUD_PROVIDER}}
 
@@ -55,17 +50,14 @@ gke_login:
 
 docker_pull_test_images:
 	@eval $$(minikube docker-env); \
-	    docker pull $(CLOUD_REPO)/platformauthapi:$(PLATFORMAUTHAPI_TAG); \
-	    docker tag $(CLOUD_REPO)/platformauthapi:$(PLATFORMAUTHAPI_TAG) platformauthapi:latest
+	    docker pull $(CLOUD_REPO)/platformauthapi:latest; \
+	    docker tag $(CLOUD_REPO)/platformauthapi:latest platformauthapi:latest
 
-eks_login:
+aws_k8s_login:
 	aws eks --region $(AWS_REGION) update-kubeconfig --name $(AWS_CLUSTER_NAME)
 
-aks_login:
+azure_k8s_login:
 	az aks get-credentials --resource-group $(AZURE_DEV_RG_NAME) --name $(CLUSTER_NAME)
-
-#ecr_login:
-#	$$(aws ecr get-login --no-include-email --region $(AWS_REGION))
 
 docker_push: build
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(CLOUD_IMAGE):latest
@@ -77,7 +69,7 @@ _helm:
 	curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash -s -- -v $(HELM_VERSION)
 	helm init --client-only
 
-k8s_deploy: _helm
+helm_deploy: _helm
 	helm -f deploy/platformsecrets/values-$(HELM_ENV).yaml --set "IMAGE=$(CLOUD_IMAGE):$(GITHUB_SHA)" upgrade --install platformsecrets deploy/platformsecrets/ --namespace platform --wait --timeout 600
 
 artifactory_docker_push: build
