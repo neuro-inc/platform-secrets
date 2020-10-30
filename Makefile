@@ -16,15 +16,13 @@ include k8s.mk
 setup:
 	@echo "Using extra pip index: $(PIP_EXTRA_INDEX_URL)"
 	pip install -r requirements/test.txt
+	pre-commit install
 
-lint:
-	black --check platform_secrets tests setup.py
-	flake8 platform_secrets tests setup.py
+lint: format
 	mypy platform_secrets tests setup.py
 
 format:
-	isort -rc platform_secrets tests setup.py
-	black platform_secrets tests setup.py
+	pre-commit run --all-files --show-diff-on-failure
 
 test_unit:
 	pytest -vv --cov=platform_secrets --cov-report xml:.coverage-unit.xml tests/unit
