@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 
 install_requires = (
     "aiohttp==3.7.2",
-    "yarl==1.5.1",
+    "yarl==1.6.2",
     "multidict==5.0.0",
     "neuro_auth_client==19.10.5",
     "trafaret==2.1.0",
