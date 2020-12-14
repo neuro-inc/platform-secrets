@@ -1,24 +1,26 @@
-FROM python:3.7.5-stretch as requirements
+FROM python:3.7.5-stretch AS installer
 
 ARG PIP_EXTRA_INDEX_URL
 
-# installing dependencies ONLY
-COPY setup.py ./
-RUN \
-    pip install --user -e . && \
-    pip uninstall -y platform-secrets
+# Separate step for requirements to speed up docker builds
+COPY platform_secrets.egg-info/requires.txt requires.txt
+RUN python -c 'from pkg_resources import Distribution, PathMetadata;\
+dist = Distribution(metadata=PathMetadata(".", "."));\
+print("\n".join(str(r) for r in dist.requires()));\
+' > requirements.txt
+RUN pip install --user -r requirements.txt
 
+ARG DIST_FILENAME
 
-FROM python:3.7.5-stretch AS service
+# Install service itself
+COPY dist/${DIST_FILENAME} ${DIST_FILENAME}
+RUN pip install --user $DIST_FILENAME
 
-WORKDIR /neuromation
+FROM python:3.7.7-stretch as service
 
-COPY setup.py ./
-COPY --from=requirements /root/.local /root/.local
+WORKDIR /app
 
-# installing platform-secrets
-COPY platform_secrets platform_secrets
-RUN pip install --user -e .
+COPY --from=installer /root/.local/ /root/.local/
 
 ENV PATH=/root/.local/bin:$PATH
 
