@@ -1,6 +1,5 @@
 *
-!setup.py
-!setup.cfg
-!platform_secrets
+!dist
+!platform_secrets.egg-info
 
 **/*.pyc

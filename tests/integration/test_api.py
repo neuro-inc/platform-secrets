@@ -61,6 +61,13 @@ class TestApi:
             text = await resp.text()
             assert text == "Pong"
 
+    async def test_ping_includes_version(
+            self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
+    ) -> None:
+        async with client.get(secrets_api.ping_url) as resp:
+            assert resp.status == HTTPOk.status_code
+            assert "platform-secrets" in resp.headers["X-Service-Version"]
+
     async def test_secured_ping(
         self,
         secrets_api: SecretsApiEndpoints,

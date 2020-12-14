@@ -36,7 +36,11 @@ test_integration:
 	pytest -vv --maxfail=3 --cov=platform_secrets --cov-report xml:.coverage-integration.xml tests/integration
 
 build:
-	docker build -f Dockerfile -t $(IMAGE_NAME):$(IMAGE_TAG) --build-arg PIP_EXTRA_INDEX_URL .
+	python setup.py sdist
+	docker build -f Dockerfile \
+		--build-arg PIP_EXTRA_INDEX_URL \
+		--build-arg DIST_FILENAME=`python setup.py --fullname`.tar.gz \
+		-t $(IMAGE_NAME):$(IMAGE_TAG) .
 
 gke_login:
 	sudo chown circleci:circleci -R $$HOME
