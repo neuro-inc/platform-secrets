@@ -1,6 +1,6 @@
 IMAGE_NAME ?= platformsecrets
 IMAGE_TAG ?= latest
-ARTIFACTORY_TAG ?= $(shell echo "$(GITHUB_REF)" | awk -F/ '{print $$NF}')
+ARTIFACTORY_TAG ?= $(shell echo $${GITHUB_REF\#refs/tags/v})
 
 CLOUD_REPO_gke   ?= $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)
 CLOUD_REPO_aws   ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
