@@ -23,6 +23,8 @@ platform:
         key: compute_token
 
 ingress:
+  extraAnnotations:
+    external-dns.platform.neuromation.io: "true"
   hosts: [dev.neu.ro]
 
 secrets: []

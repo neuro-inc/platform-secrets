@@ -17,6 +17,7 @@ platform:
   token:
 
 ingress:
+  extraAnnotations: {}
   hosts: []
 
 secrets: []
