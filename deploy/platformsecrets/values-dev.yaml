@@ -5,6 +5,8 @@ NP_SECRETS_K8S_NS: platform-jobs
 NP_CLUSTER_NAME: default
 NP_CORS_ORIGINS: http://localhost:8000,https://master--neuro-web.netlify.com,https://master--neuro-web.netlify.app
 
+env: dev
+
 resources:
   requests:
     cpu: "0.1"
