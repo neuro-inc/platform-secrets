@@ -1,9 +1,14 @@
-IMAGE: neuro-docker-local-public.jfrog.io/platformsecrets:IMAGE_TAG
-NP_SECRETS_REPLICAS: "2"
 NP_SECRETS_PLATFORM_AUTH_URL: http://platformauthapi:8080
 NP_SECRETS_K8S_NS: default
-DOCKER_LOGIN_ARTIFACTORY_SECRET_NAME: "artifactory-regcred"
 NP_CLUSTER_NAME: ""
+
+image:
+  repository: "$IMAGE_REPO"
+  tag: "$IMAGE_TAG"
+
+imagePullSecrets: []
+
+replicas: 2
 
 resources:
   requests:
@@ -14,8 +19,9 @@ resources:
     memory: "100Mi"
 
 platform:
-  token:
+  token: {}
 
-ingress: {}
+ingress:
+  enabled: false
 
 secrets: []
