@@ -12,7 +12,7 @@ from typing import (
 import pytest
 from aiohttp.hdrs import AUTHORIZATION
 from jose import jwt
-from neuro_auth_client import AuthClient, Cluster, User as AuthClientUser
+from neuro_auth_client import AuthClient, Cluster, Permission, User as AuthClientUser
 from yarl import URL
 
 from platform_secrets.api import create_auth_client
@@ -80,17 +80,31 @@ async def regular_user_factory(
         await auth_client.add_user(user, token=admin_token)
         if not skip_grant:
             # Grant permissions to the user home directory
-            headers = auth_client._generate_headers(admin_token)
-            payload = [
-                {"uri": f"secret://{cluster_name}/{name}", "action": "write"},
-            ]
-            async with auth_client._request(
-                "POST",
-                f"/api/v1/users/{name}/permissions",
-                headers=headers,
-                json=payload,
-            ) as p:
-                assert p.status == 201
+            permission = Permission(
+                uri=f"secret://{cluster_name}/{name}", action="write"
+            )
+            await auth_client.grant_user_permissions(
+                name, [permission], token=admin_token
+            )
+
         return _User(name=user.name, token=token_factory(user.name))  # type: ignore
 
     yield _factory
+
+
+@pytest.fixture
+async def share_secret(
+    auth_client: AuthClient,
+    token_factory: Callable[[str], str],
+    admin_token: str,
+    cluster_name: str,
+) -> AsyncIterator[Callable[[str, str, str], Awaitable[None]]]:
+    async def _do_grant(username: str, owner: str, key: str) -> None:
+        permission = Permission(
+            uri=f"secret://{cluster_name}/{owner}/{key}", action="write"
+        )
+        await auth_client.grant_user_permissions(
+            username, [permission], token=admin_token
+        )
+
+    yield _do_grant
