@@ -167,7 +167,7 @@ class TestApi:
         async with client.get(secrets_api.endpoint) as resp:
             assert resp.status == HTTPUnauthorized.status_code, await resp.text()
 
-    async def test_get_secrets__forbidden(
+    async def test_get_secrets__no_permissions(
         self,
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
@@ -175,7 +175,9 @@ class TestApi:
     ) -> None:
         user = await regular_user_factory(skip_grant=True)
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
-            assert resp.status == HTTPForbidden.status_code, await resp.text()
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == []
 
     async def test_get_secrets__none(
         self,
@@ -388,3 +390,35 @@ class TestApi:
             assert resp.status == HTTPNotFound.status_code, await resp.text()
             resp_payload = await resp.json()
             assert resp_payload == {"error": "Secret 'unknown' not found"}
+
+    async def test_shared_secret(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+        share_secret: Callable[[str, str, str], Awaitable[None]],
+    ) -> None:
+        user1 = await regular_user_factory()
+        user2 = await regular_user_factory()
+
+        payload: Dict[str, Any] = {"key": "k1", "value": "vvvv"}
+        async with client.post(
+            secrets_api.endpoint, headers=user1.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"key": "k1"}
+
+        async with client.get(secrets_api.endpoint, headers=user2.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == []
+
+        await share_secret(user2.name, user1.name, "k1")
+
+        async with client.get(secrets_api.endpoint, headers=user2.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == [
+                {"key": "k1"},
+            ]

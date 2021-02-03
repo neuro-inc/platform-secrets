@@ -19,7 +19,13 @@ from aiohttp.web import (
     middleware,
 )
 from aiohttp_security import check_authorized
-from neuro_auth_client import AuthClient, Permission, User, check_permissions
+from neuro_auth_client import (
+    AuthClient,
+    ClientSubTreeViewRoot,
+    Permission,
+    User,
+    check_permissions,
+)
 from neuro_auth_client.security import AuthScheme, setup_security
 from platform_logging import init_logging
 
@@ -74,12 +80,20 @@ class SecretsApiHandler:
     def _service(self) -> Service:
         return self._app["service"]
 
+    @property
+    def _auth_client(self) -> AuthClient:
+        return self._app["auth_client"]
+
     async def _get_untrusted_user(self, request: Request) -> User:
         identity = await untrusted_user(request)
         return User(name=identity.name)
 
+    @property
+    def _secret_cluster_uri(self) -> str:
+        return f"secret://{self._config.cluster_name}"
+
     def _get_user_secrets_uri(self, user: User) -> str:
-        return f"secret://{self._config.cluster_name}/{user.name}"
+        return f"{self._secret_cluster_uri}/{user.name}"
 
     def _get_user_secrets_read_perm(self, user: User) -> Permission:
         return Permission(self._get_user_secrets_uri(user), "read")
@@ -90,21 +104,42 @@ class SecretsApiHandler:
     def _convert_secret_to_payload(self, secret: Secret) -> Dict[str, str]:
         return {"key": secret.key}
 
+    def _check_secret_read_perm(
+        self, secret: Secret, tree: ClientSubTreeViewRoot
+    ) -> bool:
+        node = tree.sub_tree
+        if node.can_read():
+            return True
+        try:
+            user_node = node.children[secret.owner]
+            if user_node.can_read():
+                return True
+            secret_node = user_node.children[secret.key]
+            return secret_node.can_read()
+        except KeyError:
+            return False
+
     async def handle_post(self, request: Request) -> Response:
         user = await self._get_untrusted_user(request)
         await check_permissions(request, [self._get_user_secrets_write_perm(user)])
         payload = await request.json()
         payload = secret_request_validator.check(payload)
-        secret = Secret(key=payload["key"], value=payload["value"])
-        await self._service.add_secret(user, secret)
+        secret = Secret(key=payload["key"], value=payload["value"], owner=user.name)
+        await self._service.add_secret(secret)
         resp_payload = self._convert_secret_to_payload(secret)
         resp_payload = secret_response_validator.check(resp_payload)
         return json_response(resp_payload, status=HTTPCreated.status_code)
 
     async def handle_get_all(self, request: Request) -> Response:
-        user = await self._get_untrusted_user(request)
-        await check_permissions(request, [self._get_user_secrets_read_perm(user)])
-        secrets = await self._service.get_secrets(user)
+        username = await check_authorized(request)
+        tree = await self._auth_client.get_permissions_tree(
+            username, self._secret_cluster_uri
+        )
+        secrets = [
+            secret
+            for secret in await self._service.get_all_secrets()
+            if self._check_secret_read_perm(secret, tree)
+        ]
         resp_payload = [self._convert_secret_to_payload(secret) for secret in secrets]
         resp_payload = secret_list_response_validator.check(resp_payload)
         return json_response(resp_payload)
@@ -114,9 +149,9 @@ class SecretsApiHandler:
         await check_permissions(request, [self._get_user_secrets_write_perm(user)])
         secret_key = request.match_info["key"]
         secret_key = secret_key_validator.check(secret_key)
-        secret = Secret(key=secret_key)
+        secret = Secret(key=secret_key, owner=user.name)
         try:
-            await self._service.remove_secret(user, secret)
+            await self._service.remove_secret(secret)
         except SecretNotFound as exc:
             resp_payload = {"error": str(exc)}
             return json_response(resp_payload, status=HTTPNotFound.status_code)
@@ -231,6 +266,7 @@ async def create_app(config: Config) -> aiohttp.web.Application:
 
             logger.info("Initializing Service")
             app["secrets_app"]["service"] = Service(kube_client)
+            app["secrets_app"]["auth_client"] = auth_client
 
             yield
 

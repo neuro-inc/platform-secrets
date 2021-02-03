@@ -3,7 +3,7 @@ import logging
 import ssl
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit
 
 import aiohttp
@@ -202,6 +202,12 @@ class KubeClient:
         )
         self._raise_for_status(payload)
 
+    async def remove_secret(
+        self, secret_name: str, *, namespace_name: Optional[str] = None
+    ) -> None:
+        url = self._generate_secret_url(secret_name, namespace_name)
+        await self._request(method="DELETE", url=url)
+
     async def remove_secret_key(
         self, secret_name: str, key: str, *, namespace_name: Optional[str] = None
     ) -> None:
@@ -213,13 +219,25 @@ class KubeClient:
         )
         self._raise_for_status(payload)
 
+    def _cleanup_secret_payload(self, payload: Dict[str, Any]) -> None:
+        data = payload.get("data", {})
+        data.pop(self._dummy_secret_key, None)
+        payload["data"] = data
+
     async def get_secret(
         self, secret_name: str, *, namespace_name: Optional[str] = None
     ) -> Dict[str, Any]:
         url = self._generate_secret_url(secret_name, namespace_name)
         payload = await self._request(method="GET", url=url)
         self._raise_for_status(payload)
-        data = payload.get("data", {})
-        data.pop(self._dummy_secret_key, None)
-        payload["data"] = data
+        self._cleanup_secret_payload(payload)
         return payload
+
+    async def list_secrets(self) -> List[Dict[str, Any]]:
+        url = self._generate_all_secrets_url()
+        payload = await self._request(method="GET", url=url)
+        self._raise_for_status(payload)
+        items = payload.get("items", [])
+        for item in items:
+            self._cleanup_secret_payload(item)
+        return items

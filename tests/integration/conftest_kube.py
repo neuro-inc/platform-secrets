@@ -78,5 +78,14 @@ async def kube_client(kube_config: KubeConfig) -> AsyncIterator[KubeClient]:
         read_timeout_s=kube_config.client_read_timeout_s,
         conn_pool_size=kube_config.client_conn_pool_size,
     )
+
+    async def _drop_all_secrets(client: KubeClient) -> None:
+        for item in await client.list_secrets():
+            secret_name: str = item["metadata"]["name"]
+            if secret_name.startswith("user--"):
+                await client.remove_secret(secret_name)
+
     async with client:
+        await _drop_all_secrets(client)
         yield client
+        await _drop_all_secrets(client)
