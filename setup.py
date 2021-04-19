@@ -9,7 +9,7 @@ install_requires = (
     "multidict==5.1.0",
     "neuro_auth_client==21.1.6",
     "trafaret==2.1.0",
-    "platform-logging==0.3",
+    "platform-logging==21.4.2",
     "aiohttp-cors==0.7.0",
 )
 
