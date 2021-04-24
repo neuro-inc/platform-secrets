@@ -29,5 +29,5 @@ secret_value_validator = t.String(max_length=1024 * 1024) >> check_base64
 secret_request_validator = t.Dict(
     {"key": secret_key_validator, "value": secret_value_validator}
 )
-secret_response_validator = t.Dict({"key": t.String})
+secret_response_validator = t.Dict({"key": t.String, "owner": t.String})
 secret_list_response_validator = t.List(secret_response_validator)

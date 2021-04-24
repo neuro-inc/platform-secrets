@@ -113,7 +113,7 @@ class SecretsApiHandler:
         return Permission(self._get_user_secrets_uri(user), "write")
 
     def _convert_secret_to_payload(self, secret: Secret) -> Dict[str, str]:
-        return {"key": secret.key}
+        return {"key": secret.key, "owner": secret.owner}
 
     def _check_secret_read_perm(
         self, secret: Secret, tree: ClientSubTreeViewRoot

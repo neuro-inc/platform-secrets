@@ -249,12 +249,12 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "kkkk"}
+            assert resp_payload == {"key": "kkkk", "owner": user.name}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == [{"key": "kkkk"}]
+            assert resp_payload == [{"key": "kkkk", "owner": user.name}]
 
     async def test_post_secret_replace_remove(
         self,
@@ -270,13 +270,13 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1"}
+            assert resp_payload == {"key": "k1", "owner": user.name}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
-            assert resp_payload == [{"key": "k1"}]
+            assert resp_payload == [{"key": "k1", "owner": user.name}]
 
         payload = {"key": "k2", "value": "vvvv"}
         async with client.post(
@@ -284,15 +284,15 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k2"}
+            assert resp_payload == {"key": "k2", "owner": user.name}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
             assert resp_payload == [
-                {"key": "k1"},
-                {"key": "k2"},
+                {"key": "k1", "owner": user.name},
+                {"key": "k2", "owner": user.name},
             ]
 
         payload = {"key": "k1", "value": "rrrr"}
@@ -301,7 +301,7 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1"}
+            assert resp_payload == {"key": "k1", "owner": user.name}
 
         payload = {"key": "k1", "value": "rrrr"}
         async with client.post(
@@ -309,15 +309,15 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1"}
+            assert resp_payload == {"key": "k1", "owner": user.name}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
             assert resp_payload == [
-                {"key": "k1"},
-                {"key": "k2"},
+                {"key": "k1", "owner": user.name},
+                {"key": "k2", "owner": user.name},
             ]
 
         async with client.delete(
@@ -330,7 +330,7 @@ class TestApi:
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
             assert resp_payload == [
-                {"key": "k2"},
+                {"key": "k2", "owner": user.name},
             ]
 
         async with client.delete(
@@ -407,7 +407,7 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1"}
+            assert resp_payload == {"key": "k1", "owner": user1.name}
 
         async with client.get(secrets_api.endpoint, headers=user2.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
@@ -420,5 +420,5 @@ class TestApi:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             assert resp_payload == [
-                {"key": "k1"},
+                {"key": "k1", "owner": user1.name},
             ]
