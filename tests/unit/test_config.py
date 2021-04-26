@@ -10,7 +10,9 @@ from platform_secrets.config import (
     KubeClientAuthType,
     KubeConfig,
     PlatformAuthConfig,
+    SentryConfig,
     ServerConfig,
+    ZipkinConfig,
 )
 from platform_secrets.config_factory import EnvironConfigFactory
 
@@ -51,6 +53,9 @@ def test_create(cert_authority_path: str, token_path: str) -> None:
         "NP_SECRETS_K8S_CLIENT_CONN_POOL_SIZE": "333",
         "NP_CLUSTER_NAME": "default",
         "NP_CORS_ORIGINS": "https://domain1.com,http://do.main",
+        "NP_ZIPKIN_URL": "https://zipkin:9411",
+        "NP_SENTRY_DSN": "https://sentry",
+        "NP_SENTRY_CLUSTER_NAME": "test",
     }
     config = EnvironConfigFactory(environ).create()
     assert config == Config(
@@ -72,4 +77,65 @@ def test_create(cert_authority_path: str, token_path: str) -> None:
         ),
         cluster_name="default",
         cors=CORSConfig(["https://domain1.com", "http://do.main"]),
+        zipkin=ZipkinConfig(url=URL("https://zipkin:9411")),
+        sentry=SentryConfig(dsn=URL("https://sentry"), cluster_name="test"),
+    )
+
+
+def test_create_zipkin_none() -> None:
+    result = EnvironConfigFactory({}).create_zipkin()
+
+    assert result is None
+
+
+def test_create_zipkin_default() -> None:
+    env = {"NP_ZIPKIN_URL": "https://zipkin:9411"}
+    result = EnvironConfigFactory(env).create_zipkin()
+
+    assert result == ZipkinConfig(url=URL("https://zipkin:9411"))
+
+
+def test_create_zipkin_custom() -> None:
+    env = {
+        "NP_ZIPKIN_URL": "https://zipkin:9411",
+        "NP_ZIPKIN_APP_NAME": "api",
+        "NP_ZIPKIN_SAMPLE_RATE": "1",
+    }
+    result = EnvironConfigFactory(env).create_zipkin()
+
+    assert result == ZipkinConfig(
+        url=URL("https://zipkin:9411"), app_name="api", sample_rate=1
+    )
+
+
+def test_create_sentry_none() -> None:
+    result = EnvironConfigFactory({}).create_sentry()
+
+    assert result is None
+
+
+def test_create_sentry_default() -> None:
+    env = {
+        "NP_SENTRY_DSN": "https://sentry",
+        "NP_SENTRY_CLUSTER_NAME": "test",
+    }
+    result = EnvironConfigFactory(env).create_sentry()
+
+    assert result == SentryConfig(dsn=URL("https://sentry"), cluster_name="test")
+
+
+def test_create_sentry_custom() -> None:
+    env = {
+        "NP_SENTRY_DSN": "https://sentry",
+        "NP_SENTRY_APP_NAME": "api",
+        "NP_SENTRY_CLUSTER_NAME": "test",
+        "NP_SENTRY_SAMPLE_RATE": "1",
+    }
+    result = EnvironConfigFactory(env).create_sentry()
+
+    assert result == SentryConfig(
+        dsn=URL("https://sentry"),
+        app_name="api",
+        cluster_name="test",
+        sample_rate=1,
     )

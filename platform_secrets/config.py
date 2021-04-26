@@ -44,9 +44,27 @@ class KubeConfig:
 
 
 @dataclass(frozen=True)
+class ZipkinConfig:
+    url: URL
+    app_name: str = "platform-secrets"
+    sample_rate: float = 0
+
+
+@dataclass(frozen=True)
+class SentryConfig:
+    dsn: URL
+    cluster_name: str
+    app_name: str = "platform-secrets"
+    sample_rate: float = 0
+
+
+@dataclass(frozen=True)
 class Config:
     server: ServerConfig
     platform_auth: PlatformAuthConfig
     kube: KubeConfig
     cors: CORSConfig
     cluster_name: str
+
+    zipkin: Optional[ZipkinConfig] = None
+    sentry: Optional[SentryConfig] = None

@@ -25,3 +25,7 @@ ingress:
   enabled: false
 
 secrets: []
+
+zipkin: {}
+
+sentry: {}

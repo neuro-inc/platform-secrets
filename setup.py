@@ -7,10 +7,12 @@ install_requires = (
     "aiohttp==3.7.4",
     "yarl==1.6.3",
     "multidict==5.1.0",
-    "neuro_auth_client==21.4.19",
+    "neuro_auth_client==21.4.24",
     "trafaret==2.1.0",
-    "platform-logging==21.4.2",
+    "platform-logging==21.4.25",
     "aiohttp-cors==0.7.0",
+    "aiozipkin==1.0.0",
+    "sentry-sdk==1.0.0",
 )
 
 setup(

@@ -49,6 +49,7 @@ class KubeClient:
         conn_timeout_s: int = 300,
         read_timeout_s: int = 100,
         conn_pool_size: int = 100,
+        trace_configs: Optional[List[aiohttp.TraceConfig]] = None,
     ) -> None:
         self._base_url = base_url
         self._namespace = namespace
@@ -65,6 +66,8 @@ class KubeClient:
         self._conn_timeout_s = conn_timeout_s
         self._read_timeout_s = read_timeout_s
         self._conn_pool_size = conn_pool_size
+        self._trace_configs = trace_configs
+
         self._client: Optional[aiohttp.ClientSession] = None
 
         self._dummy_secret_key = SECRET_DUMMY_KEY
@@ -105,7 +108,10 @@ class KubeClient:
             connect=self._conn_timeout_s, total=self._read_timeout_s
         )
         return aiohttp.ClientSession(
-            connector=connector, timeout=timeout, headers=headers
+            connector=connector,
+            timeout=timeout,
+            headers=headers,
+            trace_configs=self._trace_configs,
         )
 
     @property
