@@ -9,7 +9,7 @@ install_requires = (
     "multidict==5.1.0",
     "neuro_auth_client==21.5.17",
     "trafaret==2.1.0",
-    "platform-logging==21.5.13",
+    "platform-logging==21.5.27",
     "aiohttp-cors==0.7.0",
     "aiozipkin==1.1.0",
     "sentry-sdk==1.1.0",
