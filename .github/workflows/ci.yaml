@@ -35,12 +35,12 @@ jobs:
     - name: Install python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7.7
+        python-version: 3.8.10
     - name: Cache packages
       uses: actions/cache@v1
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-py-3.7.7-${{ hashFiles('requirements/*.txt') }}-${{
+        key: ${{ runner.os }}-py-3.8.10-${{ hashFiles('requirements/*.txt') }}-${{
           hashFiles('setup.py') }}
     - name: Install dependencies
       run: make setup
@@ -109,7 +109,7 @@ jobs:
     - name: Install python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7.7
+        python-version: 3.8.10
     - name: Configure AWS credentials
       if: env.CLOUD_PROVIDER == 'aws'
       uses: aws-actions/configure-aws-credentials@v1
@@ -170,7 +170,7 @@ jobs:
     - name: Install python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7.7
+        python-version: 3.8.10
     - name: Push image to Artifactory
       run: make artifactory_docker_push
     - name: Install helm
