@@ -17,7 +17,7 @@ from aiohttp.web_exceptions import (
 from platform_secrets.api import create_app
 from platform_secrets.config import Config
 
-from .conftest import ApiAddress, create_local_app_server
+from .conftest import ApiAddress, create_local_app_server, random_name
 from .conftest_auth import _User
 
 
@@ -243,6 +243,28 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
         user = await regular_user_factory()
+        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {"key": "kkkk", "owner": user.name}
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == [{"key": "kkkk", "owner": user.name}]
+
+    async def test_post_secret_username_with_slash(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        base_name = random_name()
+        await regular_user_factory(base_name)
+        user = await regular_user_factory(f"{base_name}/something/more")
         payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload

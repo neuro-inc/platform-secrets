@@ -121,12 +121,13 @@ class SecretsApiHandler:
         node = tree.sub_tree
         if node.can_read():
             return True
+        parts = secret.owner.split("/") + [secret.key]
         try:
-            user_node = node.children[secret.owner]
-            if user_node.can_read():
-                return True
-            secret_node = user_node.children[secret.key]
-            return secret_node.can_read()
+            for part in parts:
+                if node.can_read():
+                    return True
+                node = node.children[part]
+            return node.can_read()
         except KeyError:
             return False
 
