@@ -32,12 +32,12 @@ class Service:
         self._kube_client = kube_client
 
     def _get_kube_secret_name(self, owner: str) -> str:
-        return f"user--{owner}--secrets"
+        return f"user--{owner.replace('/', '--')}--secrets"
 
     def _get_owner_from_secret_name(self, secret_name: str) -> Optional[str]:
         match = re.fullmatch(r"user--(?P<user_name>.*)--secrets", secret_name)
         if match:
-            return match.group("user_name")
+            return match.group("user_name").replace("--", "/")
         return None
 
     async def add_secret(self, secret: Secret) -> None:
