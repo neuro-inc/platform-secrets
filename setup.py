@@ -7,7 +7,7 @@ install_requires = (
     "aiohttp==3.7.4.post0",
     "yarl==1.6.3",
     "multidict==5.1.0",
-    "neuro_auth_client==21.9.9",
+    "neuro_auth_client==21.9.10.2",
     "trafaret==2.1.0",
     "neuro-logging==21.8.4.1",
     "aiohttp-cors==0.7.0",
