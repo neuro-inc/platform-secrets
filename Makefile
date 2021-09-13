@@ -26,12 +26,9 @@ ARTIFACTORY_IMAGE = $(ARTIFACTORY_IMAGE_REPO):$(TAG)
 
 HELM_CHART = platformsecrets
 
-export PIP_EXTRA_INDEX_URL ?= $(shell python pip_extra_index_url.py)
-
 include k8s.mk
 
 setup:
-	@echo "Using extra pip index: $(PIP_EXTRA_INDEX_URL)"
 	pip install -U pip
 	pip install -r requirements/test.txt
 	pip install -e .
@@ -57,7 +54,6 @@ test_integration:
 build:
 	python setup.py sdist
 	docker build -f Dockerfile \
-		--build-arg PIP_EXTRA_INDEX_URL \
 		--build-arg DIST_FILENAME=`python setup.py --fullname`.tar.gz \
 		-t $(IMAGE) .
 
