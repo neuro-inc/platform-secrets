@@ -17,7 +17,7 @@ install_requires = (
 
 setup(
     name="platform-secrets",
-    url="https://github.com/neuromation/platform-secrets",
+    url="https://github.com/neuro-inc/platform-secrets",
     use_scm_version={
         "git_describe_command": "git describe --dirty --tags --long --match v*.*.*",
     },
