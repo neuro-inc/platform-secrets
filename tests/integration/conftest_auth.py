@@ -86,7 +86,7 @@ async def regular_user_factory(
                 name, [permission], token=admin_token
             )
 
-        return _User(name=user.name, token=token_factory(user.name))  # type: ignore
+        return _User(name=user.name, token=token_factory(user.name))
 
     yield _factory
 
