@@ -1,0 +1,20 @@
+name: Test
+
+on:
+  workflow_run:
+    workflows:
+      - Dependabot auto-merge
+    types:
+      - completed
+
+jobs:
+  test-job:
+    name: Test Step
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+      - run: git branch
+      - run: env
+      - run: echo {{ toJson(github.event.workflow_run) }}
