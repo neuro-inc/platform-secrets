@@ -3,7 +3,7 @@ name: Test
 on:
   workflow_run:
     workflows:
-      - Dependabot auto-merge
+      - Continuous Integration
     types:
       - completed
 
