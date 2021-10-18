@@ -30,12 +30,11 @@ include k8s.mk
 
 setup:
 	pip install -U pip
-	pip install -r requirements/test.txt
-	pip install -e .
+	pip install -e .[dev]
 	pre-commit install
 
 lint: format
-	mypy platform_secrets tests setup.py
+	mypy platform_secrets tests
 
 format:
 ifdef CI_LINT_RUN
@@ -52,9 +51,9 @@ test_integration:
 	pytest -vv --maxfail=3 --cov=platform_secrets --cov-report xml:.coverage-integration.xml tests/integration
 
 build:
-	python setup.py sdist
+	python -c "import setuptools; setuptools.setup()" sdist
 	docker build -f Dockerfile \
-		--build-arg DIST_FILENAME=`python setup.py --fullname`.tar.gz \
+		--build-arg DIST_FILENAME=`python -c "import setuptools; setuptools.setup()" --fullname`.tar.gz \
 		-t $(IMAGE) .
 
 gke_login:
