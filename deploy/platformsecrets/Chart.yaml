@@ -1,3 +1,4 @@
+apiVersion: v2
 name: platformsecrets
 description: Deploy platformsecrets
 version: 0.0.1
