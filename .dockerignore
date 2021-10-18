@@ -1,5 +1,2 @@
 *
 !dist
-!platform_secrets.egg-info
-
-**/*.pyc
