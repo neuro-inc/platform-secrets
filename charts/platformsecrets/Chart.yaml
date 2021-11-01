@@ -1,5 +1,0 @@
-apiVersion: v2
-name: platformsecrets
-description: Deploy platformsecrets
-version: $CHART_VERSION
-appVersion: $APP_VERSION

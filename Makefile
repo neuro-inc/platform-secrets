@@ -20,7 +20,7 @@ IMAGE_REPO_BASE  = $(IMAGE_REPO_$(IMAGE_REGISTRY))
 IMAGE_REPO       = $(IMAGE_REPO_BASE)/$(IMAGE_NAME)
 
 HELM_ENV           ?= dev
-HELM_CHART          = platformsecrets
+HELM_CHART          = platform-secrets
 HELM_CHART_VERSION ?= 1.0.0
 HELM_APP_VERSION   ?= 1.0.0
 
