@@ -25,18 +25,22 @@ jobs:
     - name: Set tag
       run: |
         TAG="$(git tag --points-at ${{ github.event.workflow_run.head_sha }})"
+        echo "VERSION=${TAG#refs/tags/v}" >> $GITHUB_ENV
         echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Install Helm
+      if: startsWith(env.TAG, 'v')
       uses: azure/setup-helm@v1
       with:
         version: v3.7.0
     - name: Create chart
+      if: startsWith(env.TAG, 'v')
       run: make helm_create_chart
       env:
         GITHUB_OWNER: ${{ github.repository_owner }}
-        HELM_CHART_VERSION: ${{ env.TAG }}
-        HELM_APP_VERSION: ${{ env.TAG }}
+        HELM_CHART_VERSION: ${{ env.VERSION }}
+        HELM_APP_VERSION: ${{ env.VERSION }}
     - name: Release chart
+      if: startsWith(env.TAG, 'v')
       uses: helm/chart-releaser-action@v1.2.1
       with:
         charts_dir: temp_charts
