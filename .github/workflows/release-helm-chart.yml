@@ -25,7 +25,7 @@ jobs:
     - name: Set tag
       run: |
         TAG="$(git tag --points-at ${{ github.event.workflow_run.head_sha }})"
-        echo "VERSION=${TAG#refs/tags/v}" >> $GITHUB_ENV
+        echo "VERSION=${TAG#v}" >> $GITHUB_ENV
         echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Install Helm
       if: startsWith(env.TAG, 'v')
