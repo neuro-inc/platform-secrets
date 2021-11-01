@@ -1,8 +1,6 @@
 name: Release Helm chart
 
 on:
-  push:
-    tags: [v*.*, v*.*.*]
   workflow_run:
     workflows:
     - Release Image
