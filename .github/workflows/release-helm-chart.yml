@@ -16,14 +16,17 @@ jobs:
     name: Release Helm chart
     runs-on: ubuntu-latest
     concurrency: release_helm_chart
+    # if: startsWith(github.ref, 'refs/tags/v')
     steps:
     - name: Checkout commit
       uses: actions/checkout@v2
       with:
-        ref: ${{ github.sha }}
+        ref: ${{ github.event.workflow_run.head_sha }}
         fetch-depth: 0
     - name: Set tag
-      run: echo "TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+      run: |
+        REF="${{ github.event.workflow_run.head_branch }}"
+        echo "TAG=${REF#refs/tags/v}" >> $GITHUB_ENV
     - name: Install Helm
       uses: azure/setup-helm@v1
       with:
