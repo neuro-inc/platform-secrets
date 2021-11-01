@@ -4,27 +4,25 @@ AWS_REGION ?= us-east-1
 AZURE_RG_NAME ?= dev
 AZURE_ACR_NAME ?= crc570d91c95c6aac0ea80afb1019a0c6f
 
-ARTIFACTORY_DOCKER_REPO ?= neuro-docker-local-public.jfrog.io
-ARTIFACTORY_HELM_REPO ?= https://neuro.jfrog.io/artifactory/helm-local-public
-
-HELM_ENV ?= dev
+GITHUB_OWNER ?= neuro-inc
 
 TAG ?= latest
 
-IMAGE_NAME ?= platformsecrets
-IMAGE ?= $(IMAGE_NAME):$(TAG)
+IMAGE_REPO_gke         = $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)
+IMAGE_REPO_aws         = $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+IMAGE_REPO_azure       = $(AZURE_ACR_NAME).azurecr.io
+IMAGE_REPO_github      = ghcr.io/$(GITHUB_OWNER)
 
-CLOUD_IMAGE_REPO_gke   ?= $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)
-CLOUD_IMAGE_REPO_aws   ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-CLOUD_IMAGE_REPO_azure ?= $(AZURE_ACR_NAME).azurecr.io
-CLOUD_IMAGE_REPO_BASE   = $(CLOUD_IMAGE_REPO_$(CLOUD_PROVIDER))
-CLOUD_IMAGE_REPO        = $(CLOUD_IMAGE_REPO_BASE)/$(IMAGE_NAME)
-CLOUD_IMAGE             = $(CLOUD_IMAGE_REPO):$(TAG)
+IMAGE_REGISTRY ?= aws
 
-ARTIFACTORY_IMAGE_REPO = $(ARTIFACTORY_DOCKER_REPO)/$(IMAGE_NAME)
-ARTIFACTORY_IMAGE = $(ARTIFACTORY_IMAGE_REPO):$(TAG)
+IMAGE_NAME      ?= platformsecrets
+IMAGE_REPO_BASE  = $(IMAGE_REPO_$(IMAGE_REGISTRY))
+IMAGE_REPO       = $(IMAGE_REPO_BASE)/$(IMAGE_NAME)
 
-HELM_CHART = platformsecrets
+HELM_ENV           ?= dev
+HELM_CHART          = platformsecrets
+HELM_CHART_VERSION ?= 1.0.0
+HELM_APP_VERSION   ?= 1.0.0
 
 include k8s.mk
 
@@ -43,36 +41,16 @@ else
 	pre-commit run --all-files
 endif
 
-
 test_unit:
 	pytest -vv --cov=platform_secrets --cov-report xml:.coverage-unit.xml tests/unit
 
 test_integration:
 	pytest -vv --maxfail=3 --cov=platform_secrets --cov-report xml:.coverage-integration.xml tests/integration
 
-build:
-	rm -rf build dist
-	pip install -U build
-	python -m build
-	docker build \
-		--build-arg PYTHON_BASE=slim-buster \
-		-t $(IMAGE) .
-
-gke_login:
-	sudo chown circleci:circleci -R $$HOME
-	@echo $(GKE_ACCT_AUTH) | base64 --decode > $(HOME)//gcloud-service-key.json
-	gcloud auth activate-service-account --key-file $(HOME)/gcloud-service-key.json
-	gcloud config set project $(GKE_PROJECT_ID)
-	gcloud --quiet config set container/cluster $(GKE_CLUSTER_NAME)
-	gcloud config set $(SET_CLUSTER_ZONE_REGION)
-	gcloud version
-	docker version
-	gcloud auth configure-docker
-
 docker_pull_test_images:
 	@eval $$(minikube docker-env); \
-	    docker pull $(CLOUD_IMAGE_REPO_BASE)/platformauthapi:latest; \
-	    docker tag $(CLOUD_IMAGE_REPO_BASE)/platformauthapi:latest platformauthapi:latest
+	    docker pull $(IMAGE_REPO_BASE)/platformauthapi:latest; \
+	    docker tag $(IMAGE_REPO_BASE)/platformauthapi:latest platformauthapi:latest
 
 aws_k8s_login:
 	aws eks --region $(AWS_REGION) update-kubeconfig --name $(CLUSTER_NAME)
@@ -80,40 +58,36 @@ aws_k8s_login:
 azure_k8s_login:
 	az aks get-credentials --resource-group $(AZURE_RG_NAME) --name $(CLUSTER_NAME)
 
-docker_push: build
-	docker tag $(IMAGE) $(CLOUD_IMAGE)
-	docker push $(CLOUD_IMAGE)
+docker_build:
+	rm -rf build dist
+	pip install -U build
+	python -m build
+	docker build \
+		--build-arg PYTHON_BASE=slim-buster \
+		-t $(IMAGE_NAME):latest .
 
-	docker tag $(IMAGE) $(CLOUD_IMAGE_REPO):latest
-	docker push $(CLOUD_IMAGE_REPO):latest
+docker_push: docker_build
+	docker tag $(IMAGE_NAME):latest $(IMAGE_REPO):$(TAG)
+	docker push $(IMAGE_REPO):$(TAG)
 
-helm_install:
-	curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -s -- -v $(HELM_VERSION)
-	helm plugin install https://github.com/belitre/helm-push-artifactory-plugin --version 1.0.2
+	docker tag $(IMAGE_NAME):latest $(IMAGE_REPO):latest
+	docker push $(IMAGE_REPO):latest
 
-_helm_fetch:
-	rm -rf temp_deploy/$(HELM_CHART)
-	mkdir -p temp_deploy/$(HELM_CHART)
-	cp -Rf deploy/$(HELM_CHART) temp_deploy/
-	find temp_deploy/$(HELM_CHART) -type f -name 'values*' -delete
+helm_create_chart:
+	rm -rf temp_charts/$(HELM_CHART)
+	mkdir -p temp_charts/$(HELM_CHART)
+	cp -Rf charts/$(HELM_CHART) temp_charts/
+	find temp_charts/$(HELM_CHART) -type f -name 'values*' -delete
 
-_helm_expand_vars:
-	export IMAGE_REPO=$(ARTIFACTORY_IMAGE_REPO); \
+	export IMAGE_REPO=$(IMAGE_REPO); \
 	export IMAGE_TAG=$(TAG); \
-	cat deploy/$(HELM_CHART)/values-template.yaml | envsubst > temp_deploy/$(HELM_CHART)/values.yaml
+	cat charts/$(HELM_CHART)/values-template.yaml | envsubst > temp_charts/$(HELM_CHART)/values.yaml
 
-helm_deploy: _helm_fetch _helm_expand_vars
-	helm upgrade $(HELM_CHART) temp_deploy/$(HELM_CHART) \
-		-f deploy/$(HELM_CHART)/values-$(HELM_ENV).yaml \
-		--set "image.repository=$(CLOUD_IMAGE_REPO)" \
+	export CHART_VERSION=$(HELM_CHART_VERSION); \
+	export APP_VERSION=$(HELM_APP_VERSION); \
+	cat charts/$(HELM_CHART)/Chart.yaml | envsubst > temp_charts/$(HELM_CHART)/Chart.yaml
+
+helm_deploy: helm_create_chart
+	helm upgrade $(HELM_CHART) temp_charts/$(HELM_CHART) \
+		-f charts/$(HELM_CHART)/values-$(HELM_ENV).yaml \
 		--namespace platform --install --wait --timeout 600s
-
-artifactory_docker_push: build
-	docker tag $(IMAGE) $(ARTIFACTORY_IMAGE)
-	docker push $(ARTIFACTORY_IMAGE)
-
-artifactory_helm_push: _helm_fetch _helm_expand_vars
-	helm package --app-version=$(TAG) --version=$(TAG) temp_deploy/$(HELM_CHART)
-	helm push-artifactory $(HELM_CHART)-$(TAG).tgz $(ARTIFACTORY_HELM_REPO) \
-		--username $(ARTIFACTORY_USERNAME) \
-		--password $(ARTIFACTORY_PASSWORD)
