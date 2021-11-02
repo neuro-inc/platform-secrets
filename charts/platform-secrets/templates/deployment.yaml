@@ -45,6 +45,8 @@ spec:
         resources: {{ toYaml .Values.resources | nindent 10 }}
         {{- end }}
         env:
+        - name: NP_SECRETS_PLATFORM_AUTH_URL_TEST
+          value: {{ .Values.NP_SECRETS_PLATFORM_AUTH_URL }}
         - name: NP_SECRETS_PLATFORM_AUTH_URL
           value: {{ .Values.NP_SECRETS_PLATFORM_AUTH_URL }}
         - name: NP_SECRETS_PLATFORM_AUTH_TOKEN

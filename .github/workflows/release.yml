@@ -72,10 +72,10 @@ jobs:
       run: make helm_create_chart
       env:
         IMAGE_REGISTRY: github
-        TAG: v21.11.18
+        TAG: v21.11.19
         GITHUB_OWNER: ${{ github.repository_owner }}
-        HELM_CHART_VERSION: "21.11.18"
-        HELM_APP_VERSION: "21.11.18"
+        HELM_CHART_VERSION: "21.11.19"
+        HELM_APP_VERSION: "21.11.19"
     - name: Release chart
       uses: helm/chart-releaser-action@v1.2.1
       with:
