@@ -7,6 +7,10 @@ on:
     types:
       - completed
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   publish_image:
     name: Publish Image
