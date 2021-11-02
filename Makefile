@@ -74,15 +74,17 @@ docker_push: docker_build
 	docker push $(IMAGE_REPO):latest
 
 helm_create_chart:
-	find charts/$(HELM_CHART) -type f -name 'values*' -delete
-
 	export IMAGE_REPO=$(IMAGE_REPO); \
 	export IMAGE_TAG=$(TAG); \
-	cat charts/$(HELM_CHART)/values-template.yaml | envsubst > charts/$(HELM_CHART)/values.yaml
+	cat charts/$(HELM_CHART)/values-template.yaml | envsubst > charts/$(HELM_CHART)/tmp.values.yaml
 
 	export CHART_VERSION=$(HELM_CHART_VERSION); \
 	export APP_VERSION=$(HELM_APP_VERSION); \
-	cat charts/$(HELM_CHART)/Chart.yaml | envsubst > charts/$(HELM_CHART)/Chart.yaml
+	cat charts/$(HELM_CHART)/Chart.yaml | envsubst > charts/$(HELM_CHART)/tmp.Chart.yaml
+
+	find charts/$(HELM_CHART) -type f -name 'values*' -delete
+	mv charts/$(HELM_CHART)/tmp.Chart.yaml charts/$(HELM_CHART)/Chart.yaml
+	mv charts/$(HELM_CHART)/tmp.values.yaml charts/$(HELM_CHART)/values.yaml
 
 helm_deploy: helm_create_chart
 	helm upgrade $(HELM_CHART) charts/$(HELM_CHART) \
