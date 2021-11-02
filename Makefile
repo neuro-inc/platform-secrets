@@ -74,20 +74,17 @@ docker_push: docker_build
 	docker push $(IMAGE_REPO):latest
 
 helm_create_chart:
-	rm -rf temp_charts/$(HELM_CHART)
-	mkdir -p temp_charts/$(HELM_CHART)
-	cp -Rf charts/$(HELM_CHART) temp_charts/
-	find temp_charts/$(HELM_CHART) -type f -name 'values*' -delete
+	find charts/$(HELM_CHART) -type f -name 'values*' -delete
 
 	export IMAGE_REPO=$(IMAGE_REPO); \
 	export IMAGE_TAG=$(TAG); \
-	cat charts/$(HELM_CHART)/values-template.yaml | envsubst > temp_charts/$(HELM_CHART)/values.yaml
+	cat charts/$(HELM_CHART)/values-template.yaml | envsubst > charts/$(HELM_CHART)/values.yaml
 
 	export CHART_VERSION=$(HELM_CHART_VERSION); \
 	export APP_VERSION=$(HELM_APP_VERSION); \
-	cat charts/$(HELM_CHART)/Chart.yaml | envsubst > temp_charts/$(HELM_CHART)/Chart.yaml
+	cat charts/$(HELM_CHART)/Chart.yaml | envsubst > charts/$(HELM_CHART)/Chart.yaml
 
 helm_deploy: helm_create_chart
-	helm upgrade $(HELM_CHART) temp_charts/$(HELM_CHART) \
+	helm upgrade $(HELM_CHART) charts/$(HELM_CHART) \
 		-f charts/$(HELM_CHART)/values-$(HELM_ENV).yaml \
 		--namespace platform --install --wait --timeout 600s
