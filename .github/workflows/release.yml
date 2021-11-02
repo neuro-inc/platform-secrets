@@ -17,9 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: release_image
     outputs:
-      tag: steps.release.outputs.tag
-      version: steps.release.outputs.version
-      skip: steps.release.outputs.skip
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      skip: ${{ steps.release.outputs.skip }}
     steps:
     - name: Purge old artifacts
       uses: kolpav/purge-artifacts-action@v1
@@ -74,8 +74,6 @@ jobs:
         GITHUB_OWNER: ${{ github.repository_owner }}
         HELM_CHART_VERSION: ${{ needs.publish_image.outputs.version }}
         HELM_APP_VERSION: ${{ needs.publish_image.outputs.version }}
-    - name: Debug
-      run: echo "${{ needs.publish_image.outputs.skip }}"
     - name: Release chart
       if: ${{ ! needs.publish_image.outputs.skip }}
       uses: helm/chart-releaser-action@v1.2.1
