@@ -60,8 +60,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
     - name: Checkout commit
       run: git checkout ${{ github.event.workflow_run.head_sha }}
     - name: Configure Git
