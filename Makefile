@@ -8,10 +8,10 @@ GITHUB_OWNER ?= neuro-inc
 
 TAG ?= latest
 
-IMAGE_REPO_gke         = $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)
-IMAGE_REPO_aws         = $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-IMAGE_REPO_azure       = $(AZURE_ACR_NAME).azurecr.io
-IMAGE_REPO_github      = ghcr.io/$(GITHUB_OWNER)
+IMAGE_REPO_gke    = $(GKE_DOCKER_REGISTRY)/$(GKE_PROJECT_ID)
+IMAGE_REPO_aws    = $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+IMAGE_REPO_azure  = $(AZURE_ACR_NAME).azurecr.io
+IMAGE_REPO_github = ghcr.io/$(GITHUB_OWNER)
 
 IMAGE_REGISTRY ?= aws
 
