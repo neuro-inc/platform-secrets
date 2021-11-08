@@ -19,7 +19,7 @@ spec:
       paths:
       - path: /api/v1/secrets
         backend:
-          serviceName: {{ include "platformSecrets.fullname" . }}
+          serviceName: {{ include "platformSecrets.fullname" $ }}
           servicePort: http
   {{- end }}
 {{- end }}
