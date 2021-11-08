@@ -1,12 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: platformsecrets
+  name: {{ include "platformSecrets.fullname" . }}
+  labels: {{ include "platformSecrets.labels.standard" . | nindent 4 }}
+    service: secrets
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      service: platformsecrets
+      app: {{ include "platformSecrets.name" . }}
+      release: {{ .Release.Name }}
+      service: secrets
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -15,14 +19,16 @@ spec:
   template:
     metadata:
       labels:
-        service: platformsecrets
+        app: {{ include "platformSecrets.name" . }}
+        release: {{ .Release.Name }}
+        service: secrets
       {{- if .Values.secrets }}
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
       {{- end }}
     spec:
       containers:
-      - name: platformsecrets
+      - name: secrets
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: Always
         livenessProbe:
@@ -46,7 +52,7 @@ spec:
         {{- end }}
         env:
         - name: NP_SECRETS_PLATFORM_AUTH_URL
-          value: {{ .Values.NP_SECRETS_PLATFORM_AUTH_URL }}
+          value: {{ .Values.platform.authUrl }}
         - name: NP_SECRETS_PLATFORM_AUTH_TOKEN
 {{- if .Values.platform.token }}
 {{ toYaml .Values.platform.token | indent 10 }}
@@ -60,11 +66,13 @@ spec:
         - name: NP_SECRETS_K8S_TOKEN_PATH
           value: /var/run/secrets/kubernetes.io/serviceaccount/token
         - name: NP_SECRETS_K8S_NS
-          value: {{ .Values.NP_SECRETS_K8S_NS }}
+          value: {{ .Values.secretsNamespace }}
         - name: NP_CLUSTER_NAME
-          value: {{ .Values.NP_CLUSTER_NAME }}
+          value: {{ .Values.platform.clusterName }}
+        {{- if .Values.cors.origins }}
         - name: NP_CORS_ORIGINS
-          value: {{ .Values.NP_CORS_ORIGINS }}
+          value: {{ .Values.cors.origins | join "," }}
+        {{- end }}
         {{- if .Values.zipkin }}
         - name: NP_ZIPKIN_URL
           value: {{ .Values.zipkin.url }}
@@ -82,43 +90,3 @@ spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml .Values.imagePullSecrets | nindent 6 }}
       {{- end }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: platformsecrets
-  annotations:
-    traefik.ingress.kubernetes.io/affinity: "true"
-    traefik.ingress.kubernetes.io/session-cookie-name: NEURO_SECRETS_SESSION
-spec:
-  type: ClusterIP
-  ports:
-  - name: http
-    port: 8080
-    targetPort: tcp-web
-  selector:
-    service: platformsecrets
-{{- if .Values.ingress.enabled }}
----
-apiVersion: networking.k8s.io/v1beta1
-kind: Ingress
-metadata:
-  name: platformsecrets
-  annotations:
-    kubernetes.io/ingress.class: traefik
-    traefik.frontend.rule.type: PathPrefix
-{{- if .Values.ingress.extraAnnotations }}
-{{ toYaml .Values.ingress.extraAnnotations | indent 4 }}
-{{- end }}
-spec:
-  rules:
-  {{- range .Values.ingress.hosts }}
-  - host: {{ . | quote }}
-    http:
-      paths:
-      - path: /api/v1/secrets
-        backend:
-          serviceName: platformsecrets
-          servicePort: http
-  {{- end }}
-{{- end }}

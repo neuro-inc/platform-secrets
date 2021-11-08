@@ -1,7 +1,3 @@
-NP_SECRETS_PLATFORM_AUTH_URL: http://platformauthapi:8080
-NP_SECRETS_K8S_NS: default
-NP_CLUSTER_NAME: ""
-
 image:
   repository: "$IMAGE_REPO"
   tag: "$IMAGE_TAG"
@@ -18,11 +14,18 @@ resources:
     cpu: "0.3"
     memory: "100Mi"
 
+secretsNamespace: default
+
 platform:
+  clusterName: ""
+  authUrl: https://staging.neu.ro
   token: {}
 
 ingress:
   enabled: false
+
+cors:
+  origins: []
 
 secrets: []
 
