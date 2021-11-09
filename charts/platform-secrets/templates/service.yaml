@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ include "platformSecrets.fullname" . }}
   labels: {{ include "platformSecrets.labels.standard" . | nindent 4 }}
-    service: secrets
+    service: platform-secrets
   annotations:
     traefik.ingress.kubernetes.io/affinity: "true"
     traefik.ingress.kubernetes.io/session-cookie-name: NEURO_SECRETS_SESSION
@@ -16,4 +16,4 @@ spec:
   selector:
     app: {{ include "platformSecrets.name" . }}
     release: {{ .Release.Name }}
-    service: secrets
+    service: platform-secrets

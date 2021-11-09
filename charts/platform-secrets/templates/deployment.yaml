@@ -3,14 +3,14 @@ kind: Deployment
 metadata:
   name: {{ include "platformSecrets.fullname" . }}
   labels: {{ include "platformSecrets.labels.standard" . | nindent 4 }}
-    service: secrets
+    service: platform-secrets
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: {{ include "platformSecrets.name" . }}
       release: {{ .Release.Name }}
-      service: secrets
+      service: platform-secrets
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -21,14 +21,14 @@ spec:
       labels:
         app: {{ include "platformSecrets.name" . }}
         release: {{ .Release.Name }}
-        service: secrets
+        service: platform-secrets
       {{- if .Values.secrets }}
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
       {{- end }}
     spec:
       containers:
-      - name: secrets
+      - name: platform-secrets
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: Always
         livenessProbe:
