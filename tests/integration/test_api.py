@@ -194,7 +194,8 @@ class TestApi:
     async def test_post_secret__unauthorized(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
-        async with client.post(secrets_api.endpoint) as resp:
+        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        async with client.post(secrets_api.endpoint, json=payload) as resp:
             assert resp.status == HTTPUnauthorized.status_code, await resp.text()
 
     async def test_post_secret__forbidden(
@@ -203,8 +204,11 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
+        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
         user = await regular_user_factory(skip_grant=True)
-        async with client.post(secrets_api.endpoint, headers=user.headers) as resp:
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
             assert resp.status == HTTPForbidden.status_code, await resp.text()
 
     async def test_post_secret__unprocessible_payload(
@@ -249,12 +253,44 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "kkkk", "owner": user.name}
+            assert resp_payload == {"key": "kkkk", "owner": user.name, "org_name": None}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == [{"key": "kkkk", "owner": user.name}]
+            assert resp_payload == [
+                {"key": "kkkk", "owner": user.name, "org_name": None}
+            ]
+
+    async def test_post_secret_with_org(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory(org_name="test-org")
+        payload: Dict[str, Any] = {
+            "key": "kkkk",
+            "value": "vvvv",
+            "org_name": "test-org",
+        }
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {
+                "key": "kkkk",
+                "owner": user.name,
+                "org_name": "test-org",
+            }
+
+        async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == [
+                {"key": "kkkk", "owner": user.name, "org_name": "test-org"}
+            ]
 
     async def test_post_secret_username_with_slash(
         self,
@@ -271,12 +307,14 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "kkkk", "owner": user.name}
+            assert resp_payload == {"key": "kkkk", "owner": user.name, "org_name": None}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == [{"key": "kkkk", "owner": user.name}]
+            assert resp_payload == [
+                {"key": "kkkk", "owner": user.name, "org_name": None}
+            ]
 
     async def test_post_secret_replace_remove(
         self,
@@ -292,13 +330,13 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1", "owner": user.name}
+            assert resp_payload == {"key": "k1", "owner": user.name, "org_name": None}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
-            assert resp_payload == [{"key": "k1", "owner": user.name}]
+            assert resp_payload == [{"key": "k1", "owner": user.name, "org_name": None}]
 
         payload = {"key": "k2", "value": "vvvv"}
         async with client.post(
@@ -306,15 +344,15 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k2", "owner": user.name}
+            assert resp_payload == {"key": "k2", "owner": user.name, "org_name": None}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
             assert resp_payload == [
-                {"key": "k1", "owner": user.name},
-                {"key": "k2", "owner": user.name},
+                {"key": "k1", "owner": user.name, "org_name": None},
+                {"key": "k2", "owner": user.name, "org_name": None},
             ]
 
         payload = {"key": "k1", "value": "rrrr"}
@@ -323,7 +361,7 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1", "owner": user.name}
+            assert resp_payload == {"key": "k1", "owner": user.name, "org_name": None}
 
         payload = {"key": "k1", "value": "rrrr"}
         async with client.post(
@@ -331,15 +369,15 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1", "owner": user.name}
+            assert resp_payload == {"key": "k1", "owner": user.name, "org_name": None}
 
         async with client.get(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
             assert resp_payload == [
-                {"key": "k1", "owner": user.name},
-                {"key": "k2", "owner": user.name},
+                {"key": "k1", "owner": user.name, "org_name": None},
+                {"key": "k2", "owner": user.name, "org_name": None},
             ]
 
         async with client.delete(
@@ -352,7 +390,7 @@ class TestApi:
             resp_payload = await resp.json()
             resp_payload = sorted(resp_payload, key=lambda s: s["key"])
             assert resp_payload == [
-                {"key": "k2", "owner": user.name},
+                {"key": "k2", "owner": user.name, "org_name": None},
             ]
 
         async with client.delete(
@@ -429,7 +467,7 @@ class TestApi:
         ) as resp:
             assert resp.status == HTTPCreated.status_code, await resp.text()
             resp_payload = await resp.json()
-            assert resp_payload == {"key": "k1", "owner": user1.name}
+            assert resp_payload == {"key": "k1", "owner": user1.name, "org_name": None}
 
         async with client.get(secrets_api.endpoint, headers=user2.headers) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
@@ -442,5 +480,51 @@ class TestApi:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             assert resp_payload == [
-                {"key": "k1", "owner": user1.name},
+                {"key": "k1", "owner": user1.name, "org_name": None},
+            ]
+
+    async def test_org_level_access(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+        share_secret: Callable[[str, str, str], Awaitable[None]],
+    ) -> None:
+        org_name = random_name(5)
+        user1 = await regular_user_factory(org_name=org_name)
+        user2 = await regular_user_factory(org_name=org_name)
+        user3 = await regular_user_factory(org_name=org_name, org_level=True)
+
+        payload: Dict[str, Any] = {"key": "k1", "value": "vvvv", "org_name": org_name}
+        async with client.post(
+            secrets_api.endpoint, headers=user1.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {
+                "key": "k1",
+                "owner": user1.name,
+                "org_name": org_name,
+            }
+
+        async with client.post(
+            secrets_api.endpoint, headers=user2.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {
+                "key": "k1",
+                "owner": user2.name,
+                "org_name": org_name,
+            }
+
+        async with client.get(secrets_api.endpoint, headers=user3.headers) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert len(resp_payload) == 2
+            if resp_payload[0]["owner"] == user2.name:
+                resp_payload[0], resp_payload[1] = resp_payload[1], resp_payload[0]
+            assert resp_payload == [
+                {"key": "k1", "owner": user1.name, "org_name": org_name},
+                {"key": "k1", "owner": user2.name, "org_name": org_name},
             ]

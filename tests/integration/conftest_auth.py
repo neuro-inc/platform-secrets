@@ -72,16 +72,30 @@ async def regular_user_factory(
     admin_token: str,
     cluster_name: str,
 ) -> AsyncIterator[Callable[[Optional[str]], Awaitable[_User]]]:
-    async def _factory(name: Optional[str] = None, skip_grant: bool = False) -> _User:
+    async def _factory(
+        name: Optional[str] = None,
+        skip_grant: bool = False,
+        org_name: Optional[str] = None,
+        org_level: bool = False,
+    ) -> _User:
         if not name:
             name = f"user-{random_name()}"
         user = AuthClientUser(name=name, clusters=[Cluster(name=cluster_name)])
         await auth_client.add_user(user, token=admin_token)
         if not skip_grant:
             # Grant permissions to the user home directory
-            permission = Permission(
-                uri=f"secret://{cluster_name}/{name}", action="write"
-            )
+            if org_name is None:
+                permission = Permission(
+                    uri=f"secret://{cluster_name}/{name}", action="write"
+                )
+            elif org_level:
+                permission = Permission(
+                    uri=f"secret://{cluster_name}/{org_name}", action="write"
+                )
+            else:
+                permission = Permission(
+                    uri=f"secret://{cluster_name}/{org_name}/{name}", action="write"
+                )
             await auth_client.grant_user_permissions(
                 name, [permission], token=admin_token
             )

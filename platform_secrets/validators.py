@@ -27,7 +27,14 @@ secret_key_validator = (
 )
 secret_value_validator = t.String(max_length=1024 * 1024) >> check_base64
 secret_request_validator = t.Dict(
-    {"key": secret_key_validator, "value": secret_value_validator}
+    {
+        "key": secret_key_validator,
+        "value": secret_value_validator,
+        t.Key("org_name", optional=True): t.String(min_length=1, max_length=253)
+        | t.Null(),
+    }
 )
-secret_response_validator = t.Dict({"key": t.String, "owner": t.String})
+secret_response_validator = t.Dict(
+    {"key": t.String, "owner": t.String, "org_name": t.String() | t.Null()}
+)
 secret_list_response_validator = t.List(secret_response_validator)
