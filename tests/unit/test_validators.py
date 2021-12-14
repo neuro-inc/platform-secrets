@@ -68,6 +68,13 @@ def test_secret_request_validator__invalid_value_too_long() -> None:
 
 def test_secret_response_validator__long_key() -> None:
     validator = secret_response_validator
-    payload = {"key": "k" * 255, "owner": "test"}
+    payload = {"key": "k" * 255, "owner": "test", "org_name": None}
+    result = validator.check(payload)
+    assert result == payload
+
+
+def test_secret_response_validator__with_org() -> None:
+    validator = secret_response_validator
+    payload = {"key": "key", "owner": "test", "org_name": "test-org"}
     result = validator.check(payload)
     assert result == payload

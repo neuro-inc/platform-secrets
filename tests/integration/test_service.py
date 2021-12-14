@@ -29,6 +29,15 @@ class TestService:
         secret = Secret(key, user.name, base64.b64encode(b"testvalue").decode())
         await service.add_secret(secret)
 
+    @pytest.mark.parametrize("key", ["-", "_", ".-", "0"])
+    async def test_with_org(self, service: Service, key: str) -> None:
+        user = User(name=random_name())
+        secret = Secret(
+            key, user.name, base64.b64encode(b"testvalue").decode(), org_name="test"
+        )
+        await service.add_secret(secret)
+        assert set(await service.get_all_secrets(with_values=True)) == {secret}
+
     async def test_add_secret_invalid_value(self, service: Service) -> None:
         user = User(name=random_name())
         secret = Secret("testkey", user.name, "testvalue")

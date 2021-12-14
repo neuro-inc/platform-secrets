@@ -82,7 +82,7 @@ async def kube_client(kube_config: KubeConfig) -> AsyncIterator[KubeClient]:
     async def _drop_all_secrets(client: KubeClient) -> None:
         for item in await client.list_secrets():
             secret_name: str = item["metadata"]["name"]
-            if secret_name.startswith("user--"):
+            if secret_name.startswith("user--") or secret_name.startswith("org--"):
                 await client.remove_secret(secret_name)
 
     async with client:

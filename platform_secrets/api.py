@@ -1,6 +1,6 @@
 import logging
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, Awaitable, Callable, Dict, List
+from typing import AsyncIterator, Awaitable, Callable, Dict, List, Optional
 
 import aiohttp
 import aiohttp.web
@@ -103,17 +103,28 @@ class SecretsApiHandler:
     def _secret_cluster_uri(self) -> str:
         return f"secret://{self._config.cluster_name}"
 
-    def _get_user_secrets_uri(self, user: User) -> str:
-        return f"{self._secret_cluster_uri}/{user.name}"
+    def _get_org_secrets_uri(self, org_name: str) -> str:
+        return f"{self._secret_cluster_uri}/{org_name}"
 
-    def _get_user_secrets_read_perm(self, user: User) -> Permission:
-        return Permission(self._get_user_secrets_uri(user), "read")
+    def _get_user_secrets_uri(self, user: User, org_name: Optional[str]) -> str:
+        if org_name is None:
+            base = self._secret_cluster_uri
+        else:
+            base = self._get_org_secrets_uri(org_name)
+        return f"{base}/{user.name}"
 
-    def _get_user_secrets_write_perm(self, user: User) -> Permission:
-        return Permission(self._get_user_secrets_uri(user), "write")
+    def _get_user_secrets_read_perm(
+        self, user: User, org_name: Optional[str]
+    ) -> Permission:
+        return Permission(self._get_user_secrets_uri(user, org_name), "read")
 
-    def _convert_secret_to_payload(self, secret: Secret) -> Dict[str, str]:
-        return {"key": secret.key, "owner": secret.owner}
+    def _get_user_secrets_write_perm(
+        self, user: User, org_name: Optional[str]
+    ) -> Permission:
+        return Permission(self._get_user_secrets_uri(user, org_name), "write")
+
+    def _convert_secret_to_payload(self, secret: Secret) -> Dict[str, Optional[str]]:
+        return {"key": secret.key, "owner": secret.owner, "org_name": secret.org_name}
 
     def _check_secret_read_perm(
         self, secret: Secret, tree: ClientSubTreeViewRoot
@@ -122,6 +133,8 @@ class SecretsApiHandler:
         if node.can_read():
             return True
         parts = secret.owner.split("/") + [secret.key]
+        if secret.org_name:
+            parts = [secret.org_name] + parts
         try:
             for part in parts:
                 if node.can_read():
@@ -133,10 +146,18 @@ class SecretsApiHandler:
 
     async def handle_post(self, request: Request) -> Response:
         user = await self._get_untrusted_user(request)
-        await check_permissions(request, [self._get_user_secrets_write_perm(user)])
         payload = await request.json()
         payload = secret_request_validator.check(payload)
-        secret = Secret(key=payload["key"], value=payload["value"], owner=user.name)
+        org_name = payload.get("org_name")
+        await check_permissions(
+            request, [self._get_user_secrets_write_perm(user, org_name)]
+        )
+        secret = Secret(
+            key=payload["key"],
+            value=payload["value"],
+            owner=user.name,
+            org_name=org_name,
+        )
         await self._service.add_secret(secret)
         resp_payload = self._convert_secret_to_payload(secret)
         resp_payload = secret_response_validator.check(resp_payload)
@@ -158,10 +179,13 @@ class SecretsApiHandler:
 
     async def handle_delete(self, request: Request) -> Response:
         user = await self._get_untrusted_user(request)
-        await check_permissions(request, [self._get_user_secrets_write_perm(user)])
+        org_name = request.query.get("org_name")
+        await check_permissions(
+            request, [self._get_user_secrets_write_perm(user, org_name)]
+        )
         secret_key = request.match_info["key"]
         secret_key = secret_key_validator.check(secret_key)
-        secret = Secret(key=secret_key, owner=user.name)
+        secret = Secret(key=secret_key, owner=user.name, org_name=org_name)
         try:
             await self._service.remove_secret(secret)
         except SecretNotFound as exc:

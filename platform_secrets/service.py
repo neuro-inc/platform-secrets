@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .kube_client import (
     KubeClient,
@@ -25,23 +25,34 @@ class Secret:
     key: str
     owner: str
     value: str = field(repr=False, default="")
+    org_name: Optional[str] = None
 
 
 class Service:
     def __init__(self, kube_client: KubeClient) -> None:
         self._kube_client = kube_client
 
-    def _get_kube_secret_name(self, owner: str) -> str:
-        return f"user--{owner.replace('/', '--')}--secrets"
+    def _get_kube_secret_name(self, owner: str, org_name: Optional[str]) -> str:
+        name = f"user--{owner.replace('/', '--')}--secrets"
+        if org_name:
+            name = f"org--{org_name}--{name}"
+        return name
 
-    def _get_owner_from_secret_name(self, secret_name: str) -> Optional[str]:
+    def _get_org_owner_from_secret_name(
+        self, secret_name: str
+    ) -> Tuple[Optional[str], Optional[str]]:
         match = re.fullmatch(r"user--(?P<user_name>.*)--secrets", secret_name)
         if match:
-            return match.group("user_name").replace("--", "/")
-        return None
+            return match.group("user_name").replace("--", "/"), None
+        match = re.fullmatch(
+            r"org--(?P<org_name>.*)--user--(?P<user_name>.*)--secrets", secret_name
+        )
+        if match:
+            return match.group("user_name").replace("--", "/"), match.group("org_name")
+        return None, None
 
     async def add_secret(self, secret: Secret) -> None:
-        secret_name = self._get_kube_secret_name(secret.owner)
+        secret_name = self._get_kube_secret_name(secret.owner, secret.org_name)
         try:
             try:
                 await self._kube_client.add_secret_key(
@@ -56,7 +67,7 @@ class Service:
             raise ValueError(f"Secret key {secret.key!r} or its value not valid")
 
     async def remove_secret(self, secret: Secret) -> None:
-        secret_name = self._get_kube_secret_name(secret.owner)
+        secret_name = self._get_kube_secret_name(secret.owner, secret.org_name)
         try:
             await self._kube_client.remove_secret_key(secret_name, secret.key)
         except (ResourceNotFound, ResourceInvalid):
@@ -66,16 +77,19 @@ class Service:
         payload = await self._kube_client.list_secrets()
         result = []
         for item in payload:
-            owner = self._get_owner_from_secret_name(item["metadata"]["name"])
+            owner, org_name = self._get_org_owner_from_secret_name(
+                item["metadata"]["name"]
+            )
             if not owner:
                 continue
             if with_values:
                 result += [
-                    Secret(key=key, value=value, owner=owner)
+                    Secret(key=key, value=value, owner=owner, org_name=org_name)
                     for key, value in item.get("data", {}).items()
                 ]
             else:
                 result += [
-                    Secret(key=key, owner=owner) for key in item.get("data", {}).keys()
+                    Secret(key=key, owner=owner, org_name=org_name)
+                    for key in item.get("data", {}).keys()
                 ]
         return result
