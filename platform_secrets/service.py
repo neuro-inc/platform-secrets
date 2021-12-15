@@ -13,6 +13,8 @@ from .kube_client import (
 
 logger = logging.getLogger()
 
+SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"
+
 
 class SecretNotFound(Exception):
     @classmethod
@@ -33,22 +35,25 @@ class Service:
         self._kube_client = kube_client
 
     def _get_kube_secret_name(self, owner: str, org_name: Optional[str]) -> str:
-        name = f"user--{owner.replace('/', '--')}--secrets"
+        path = owner
         if org_name:
-            name = f"org--{org_name}--{name}"
-        return name
+            path = f"{org_name}/{path}"
+        return f"user--{path.replace('/', '--')}--secrets"
 
     def _get_org_owner_from_secret_name(
-        self, secret_name: str
+        self,
+        secret_name: str,
+        org_name: Optional[str],
     ) -> Tuple[Optional[str], Optional[str]]:
         match = re.fullmatch(r"user--(?P<user_name>.*)--secrets", secret_name)
         if match:
-            return match.group("user_name").replace("--", "/"), None
-        match = re.fullmatch(
-            r"org--(?P<org_name>.*)--user--(?P<user_name>.*)--secrets", secret_name
-        )
-        if match:
-            return match.group("user_name").replace("--", "/"), match.group("org_name")
+            path: str = match.group("user_name").replace("--", "/")
+            if org_name:
+                assert path.startswith(org_name + "/")
+                _, username = path.split("/", 1)
+            else:
+                username = path
+            return username, org_name
         return None, None
 
     async def add_secret(self, secret: Secret) -> None:
@@ -59,8 +64,11 @@ class Service:
                     secret_name, secret.key, secret.value
                 )
             except ResourceNotFound:
+                labels = {}
+                if secret.org_name:
+                    labels[SECRET_API_ORG_LABEL] = secret.org_name
                 await self._kube_client.create_secret(
-                    secret_name, {secret.key: secret.value}
+                    secret_name, {secret.key: secret.value}, labels=labels
                 )
         except (ResourceInvalid, ResourceBadRequest):
             logger.exception(f"Failed to add/replace secret key {secret.key!r}")
@@ -78,7 +86,8 @@ class Service:
         result = []
         for item in payload:
             owner, org_name = self._get_org_owner_from_secret_name(
-                item["metadata"]["name"]
+                item["metadata"]["name"],
+                org_name=item["metadata"].get("labels", {}).get(SECRET_API_ORG_LABEL),
             )
             if not owner:
                 continue

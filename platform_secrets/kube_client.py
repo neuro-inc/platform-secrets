@@ -171,6 +171,7 @@ class KubeClient:
         self,
         secret_name: str,
         data: Dict[str, str],
+        labels: Dict[str, str],
         *,
         namespace_name: Optional[str] = None,
     ) -> None:
@@ -180,7 +181,7 @@ class KubeClient:
         payload = {
             "apiVersion": "v1",
             "kind": "Secret",
-            "metadata": {"name": secret_name},
+            "metadata": {"name": secret_name, "labels": labels},
             "data": data,
             "type": "Opaque",
         }
