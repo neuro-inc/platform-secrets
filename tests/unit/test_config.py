@@ -35,7 +35,26 @@ def token_path(tmp_path: Path) -> str:
     return str(token_path)
 
 
-def test_create(cert_authority_path: str, token_path: str) -> None:
+def test_create_default() -> None:
+    environ: Dict[str, Any] = {
+        "NP_SECRETS_PLATFORM_AUTH_URL": "-",
+        "NP_SECRETS_PLATFORM_AUTH_TOKEN": "platform-auth-token",
+        "NP_SECRETS_K8S_API_URL": "https://localhost:8443",
+    }
+    config = EnvironConfigFactory(environ).create()
+    assert config == Config(
+        server=ServerConfig(host="0.0.0.0", port=8080),
+        platform_auth=PlatformAuthConfig(url=None, token="platform-auth-token"),
+        kube=KubeConfig(
+            endpoint_url="https://localhost:8443",
+            auth_type=KubeClientAuthType.CERTIFICATE,
+        ),
+        cluster_name="",
+        cors=CORSConfig(),
+    )
+
+
+def test_create_custom(cert_authority_path: str, token_path: str) -> None:
     environ: Dict[str, Any] = {
         "NP_SECRETS_API_HOST": "0.0.0.0",
         "NP_SECRETS_API_PORT": 8080,
