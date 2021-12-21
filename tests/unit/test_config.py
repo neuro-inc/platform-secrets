@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from yarl import URL
@@ -36,7 +36,7 @@ def token_path(tmp_path: Path) -> str:
 
 
 def test_create_default() -> None:
-    environ: Dict[str, Any] = {
+    environ: dict[str, Any] = {
         "NP_SECRETS_PLATFORM_AUTH_URL": "-",
         "NP_SECRETS_PLATFORM_AUTH_TOKEN": "platform-auth-token",
         "NP_SECRETS_K8S_API_URL": "https://localhost:8443",
@@ -55,7 +55,7 @@ def test_create_default() -> None:
 
 
 def test_create_custom(cert_authority_path: str, token_path: str) -> None:
-    environ: Dict[str, Any] = {
+    environ: dict[str, Any] = {
         "NP_SECRETS_API_HOST": "0.0.0.0",
         "NP_SECRETS_API_PORT": 8080,
         "NP_SECRETS_PLATFORM_AUTH_URL": "http://platformauthapi/api/v1",

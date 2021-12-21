@@ -1,11 +1,12 @@
 import logging
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, Awaitable, Callable, Dict, List, Optional
+from importlib.metadata import version
+from typing import Optional
 
 import aiohttp
 import aiohttp.web
 import aiohttp_cors
-import pkg_resources
 from aiohttp.web import (
     HTTPBadRequest,
     HTTPCreated,
@@ -55,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 
 class ApiHandler:
-    def register(self, app: aiohttp.web.Application) -> List[AbstractRoute]:
+    def register(self, app: aiohttp.web.Application) -> list[AbstractRoute]:
         return app.add_routes(
             [
                 aiohttp.web.get("/ping", self.handle_ping),
@@ -123,7 +124,7 @@ class SecretsApiHandler:
     ) -> Permission:
         return Permission(self._get_user_secrets_uri(user, org_name), "write")
 
-    def _convert_secret_to_payload(self, secret: Secret) -> Dict[str, Optional[str]]:
+    def _convert_secret_to_payload(self, secret: Secret) -> dict[str, Optional[str]]:
         return {"key": secret.key, "owner": secret.owner, "org_name": secret.org_name}
 
     def _check_secret_read_perm(
@@ -223,7 +224,7 @@ async def create_secrets_app(config: Config) -> aiohttp.web.Application:
 
 @asynccontextmanager
 async def create_kube_client(
-    config: KubeConfig, trace_configs: List[aiohttp.TraceConfig]
+    config: KubeConfig, trace_configs: list[aiohttp.TraceConfig]
 ) -> AsyncIterator[KubeClient]:
     client = KubeClient(
         base_url=config.endpoint_url,
@@ -263,14 +264,14 @@ def _setup_cors(app: aiohttp.web.Application, config: CORSConfig) -> None:
         cors.add(route)
 
 
-package_version = pkg_resources.get_distribution("platform-secrets").version
+package_version = version(__package__)
 
 
 async def add_version_to_header(request: Request, response: StreamResponse) -> None:
     response.headers["X-Service-Version"] = f"platform-secrets/{package_version}"
 
 
-def make_tracing_trace_configs(config: Config) -> List[aiohttp.TraceConfig]:
+def make_tracing_trace_configs(config: Config) -> list[aiohttp.TraceConfig]:
     trace_configs = []
 
     if config.zipkin:

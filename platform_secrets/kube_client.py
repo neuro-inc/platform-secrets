@@ -3,7 +3,7 @@ import logging
 import ssl
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import urlsplit
 
 import aiohttp
@@ -49,7 +49,7 @@ class KubeClient:
         conn_timeout_s: int = 300,
         read_timeout_s: int = 100,
         conn_pool_size: int = 100,
-        trace_configs: Optional[List[aiohttp.TraceConfig]] = None,
+        trace_configs: Optional[list[aiohttp.TraceConfig]] = None,
     ) -> None:
         self._base_url = base_url
         self._namespace = namespace
@@ -148,14 +148,14 @@ class KubeClient:
         all_secrets_url = self._generate_all_secrets_url(namespace_name)
         return f"{all_secrets_url}/{secret_name}"
 
-    async def _request(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    async def _request(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         assert self._client, "client is not initialized"
         async with self._client.request(*args, **kwargs) as response:
             # TODO (A Danshyn 05/21/18): check status code etc
             payload = await response.json()
             return payload
 
-    def _raise_for_status(self, payload: Dict[str, Any]) -> None:
+    def _raise_for_status(self, payload: dict[str, Any]) -> None:
         kind = payload["kind"]
         if kind == "Status":
             code = payload["code"]
@@ -170,8 +170,8 @@ class KubeClient:
     async def create_secret(
         self,
         secret_name: str,
-        data: Dict[str, str],
-        labels: Dict[str, str],
+        data: dict[str, str],
+        labels: dict[str, str],
         *,
         namespace_name: Optional[str] = None,
     ) -> None:
@@ -226,21 +226,21 @@ class KubeClient:
         )
         self._raise_for_status(payload)
 
-    def _cleanup_secret_payload(self, payload: Dict[str, Any]) -> None:
+    def _cleanup_secret_payload(self, payload: dict[str, Any]) -> None:
         data = payload.get("data", {})
         data.pop(self._dummy_secret_key, None)
         payload["data"] = data
 
     async def get_secret(
         self, secret_name: str, *, namespace_name: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         url = self._generate_secret_url(secret_name, namespace_name)
         payload = await self._request(method="GET", url=url)
         self._raise_for_status(payload)
         self._cleanup_secret_payload(payload)
         return payload
 
-    async def list_secrets(self) -> List[Dict[str, Any]]:
+    async def list_secrets(self) -> list[dict[str, Any]]:
         url = self._generate_all_secrets_url()
         payload = await self._request(method="GET", url=url)
         self._raise_for_status(payload)
