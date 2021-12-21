@@ -1,7 +1,8 @@
 import json
 import subprocess
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, Optional
 
 import pytest
 
@@ -10,7 +11,7 @@ from platform_secrets.kube_client import KubeClient
 
 
 @pytest.fixture(scope="session")
-def kube_config_payload() -> Dict[str, Any]:
+def kube_config_payload() -> dict[str, Any]:
     result = subprocess.run(
         ["kubectl", "config", "view", "-o", "json"], stdout=subprocess.PIPE
     )
@@ -19,7 +20,7 @@ def kube_config_payload() -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="session")
-def kube_config_cluster_payload(kube_config_payload: Dict[str, Any]) -> Any:
+def kube_config_cluster_payload(kube_config_payload: dict[str, Any]) -> Any:
     cluster_name = "minikube"
     clusters = {
         cluster["name"]: cluster["cluster"]
@@ -29,7 +30,7 @@ def kube_config_cluster_payload(kube_config_payload: Dict[str, Any]) -> Any:
 
 
 @pytest.fixture(scope="session")
-def kube_config_user_payload(kube_config_payload: Dict[str, Any]) -> Any:
+def kube_config_user_payload(kube_config_payload: dict[str, Any]) -> Any:
     user_name = "minikube"
     users = {user["name"]: user["user"] for user in kube_config_payload["users"]}
     return users[user_name]
@@ -37,7 +38,7 @@ def kube_config_user_payload(kube_config_payload: Dict[str, Any]) -> Any:
 
 @pytest.fixture(scope="session")
 def cert_authority_data_pem(
-    kube_config_cluster_payload: Dict[str, Any]
+    kube_config_cluster_payload: dict[str, Any]
 ) -> Optional[str]:
     ca_path = kube_config_cluster_payload["certificate-authority"]
     if ca_path:
@@ -47,8 +48,8 @@ def cert_authority_data_pem(
 
 @pytest.fixture
 async def kube_config(
-    kube_config_cluster_payload: Dict[str, Any],
-    kube_config_user_payload: Dict[str, Any],
+    kube_config_cluster_payload: dict[str, Any],
+    kube_config_user_payload: dict[str, Any],
     cert_authority_data_pem: Optional[str],
 ) -> KubeConfig:
     cluster = kube_config_cluster_payload

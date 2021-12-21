@@ -1,5 +1,6 @@
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict
+from typing import Any
 from unittest import mock
 
 import aiohttp
@@ -194,7 +195,7 @@ class TestApi:
     async def test_post_secret__unauthorized(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
-        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        payload: dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
         async with client.post(secrets_api.endpoint, json=payload) as resp:
             assert resp.status == HTTPUnauthorized.status_code, await resp.text()
 
@@ -204,7 +205,7 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
-        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        payload: dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
         user = await regular_user_factory(skip_grant=True)
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
@@ -231,7 +232,7 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
         user = await regular_user_factory()
-        payload: Dict[str, Any] = {}
+        payload: dict[str, Any] = {}
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -247,7 +248,7 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
         user = await regular_user_factory()
-        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        payload: dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -269,7 +270,7 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
         user = await regular_user_factory(org_name="test-org")
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
             "org_name": "test-org",
@@ -301,7 +302,7 @@ class TestApi:
         base_name = random_name()
         await regular_user_factory(base_name)
         user = await regular_user_factory(f"{base_name}/something/more")
-        payload: Dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        payload: dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -324,7 +325,7 @@ class TestApi:
     ) -> None:
         user = await regular_user_factory()
 
-        payload: Dict[str, Any] = {"key": "k1", "value": "vvvv"}
+        payload: dict[str, Any] = {"key": "k1", "value": "vvvv"}
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -461,7 +462,7 @@ class TestApi:
         user1 = await regular_user_factory()
         user2 = await regular_user_factory()
 
-        payload: Dict[str, Any] = {"key": "k1", "value": "vvvv"}
+        payload: dict[str, Any] = {"key": "k1", "value": "vvvv"}
         async with client.post(
             secrets_api.endpoint, headers=user1.headers, json=payload
         ) as resp:
@@ -495,7 +496,7 @@ class TestApi:
         user2 = await regular_user_factory(org_name=org_name)
         user3 = await regular_user_factory(org_name=org_name, org_level=True)
 
-        payload: Dict[str, Any] = {"key": "k1", "value": "vvvv", "org_name": org_name}
+        payload: dict[str, Any] = {"key": "k1", "value": "vvvv", "org_name": org_name}
         async with client.post(
             secrets_api.endpoint, headers=user1.headers, json=payload
         ) as resp:

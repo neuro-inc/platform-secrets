@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from .kube_client import (
     KubeClient,
@@ -44,7 +44,7 @@ class Service:
         self,
         secret_name: str,
         org_name: Optional[str],
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[Optional[str], Optional[str]]:
         match = re.fullmatch(r"user--(?P<user_name>.*)--secrets", secret_name)
         if match:
             path: str = match.group("user_name").replace("--", "/")
@@ -81,7 +81,7 @@ class Service:
         except (ResourceNotFound, ResourceInvalid):
             raise SecretNotFound.create(secret.key)
 
-    async def get_all_secrets(self, with_values: bool = False) -> List[Secret]:
+    async def get_all_secrets(self, with_values: bool = False) -> list[Secret]:
         payload = await self._kube_client.list_secrets()
         result = []
         for item in payload:
