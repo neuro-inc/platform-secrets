@@ -16,7 +16,6 @@ from platform_secrets.config import (
 )
 from platform_secrets.config_factory import EnvironConfigFactory
 
-
 CA_DATA_PEM = "this-is-certificate-authority-public-key"
 TOKEN = "this-is-token"
 
