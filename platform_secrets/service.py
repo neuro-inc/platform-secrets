@@ -10,7 +10,6 @@ from .kube_client import (
     ResourceNotFound,
 )
 
-
 logger = logging.getLogger()
 
 SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"

@@ -9,6 +9,7 @@ from neuro_auth_client import AuthClient, Cluster, Permission, User as AuthClien
 from yarl import URL
 
 from platform_secrets.config import PlatformAuthConfig
+
 from tests.integration.conftest import get_service_url, random_name
 
 

@@ -51,7 +51,6 @@ from .validators import (
     secret_response_validator,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

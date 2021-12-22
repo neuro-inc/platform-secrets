@@ -10,7 +10,6 @@ import aiohttp
 
 from .config import KubeClientAuthType
 
-
 logger = logging.getLogger(__name__)
 
 

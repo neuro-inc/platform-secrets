@@ -19,7 +19,6 @@ from platform_secrets.config import (
     ServerConfig,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
