@@ -8,7 +8,6 @@ from platform_secrets.service import Secret, SecretNotFound, Service
 
 from tests.integration.conftest import random_name
 
-pytestmark = pytest.mark.asyncio
 
 
 class TestService:
