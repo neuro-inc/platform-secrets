@@ -22,7 +22,6 @@ from .conftest import ApiAddress, create_local_app_server, random_name
 from .conftest_auth import _User
 
 
-
 @dataclass(frozen=True)
 class SecretsApiEndpoints:
     address: ApiAddress

@@ -9,7 +9,6 @@ from platform_secrets.service import Secret, SecretNotFound, Service
 from tests.integration.conftest import random_name
 
 
-
 class TestService:
     @pytest.fixture
     def service(self, kube_client: KubeClient) -> Service:
