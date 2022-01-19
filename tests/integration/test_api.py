@@ -21,7 +21,6 @@ from platform_secrets.config import Config
 from .conftest import ApiAddress, create_local_app_server, random_name
 from .conftest_auth import _User
 
-pytestmark = pytest.mark.asyncio
 
 
 @dataclass(frozen=True)
