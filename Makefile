@@ -30,4 +30,4 @@ docker_build:
 	rm -rf build dist
 	pip install -U build
 	python -m build
-	docker build -t $(IMAGE_NAME):latest .
+	docker build -t platformsecrets:latest .
