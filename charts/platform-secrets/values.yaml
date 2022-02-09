@@ -23,6 +23,10 @@ platform:
 
 ingress:
   enabled: false
+  # annotations:
+
+service:
+  # annotations:
 
 cors:
   origins: []
