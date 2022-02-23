@@ -12,6 +12,7 @@ from aiohttp.web_exceptions import (
     HTTPForbidden,
     HTTPNoContent,
     HTTPNotFound,
+    HTTPServiceUnavailable,
     HTTPUnauthorized,
 )
 
@@ -47,6 +48,24 @@ class SecretsApiEndpoints:
 async def secrets_api(config: Config) -> AsyncIterator[SecretsApiEndpoints]:
     app = await create_app(config)
     async with create_local_app_server(app, port=8080) as address:
+        yield SecretsApiEndpoints(address=address)
+
+
+@pytest.fixture
+async def secrets_api_cluster_maintenance(
+    config_cluster_maintenance: Config,
+) -> AsyncIterator[SecretsApiEndpoints]:
+    app = await create_app(config_cluster_maintenance)
+    async with create_local_app_server(app, port=8081) as address:
+        yield SecretsApiEndpoints(address=address)
+
+
+@pytest.fixture
+async def secrets_api_org_cluster_maintenance(
+    config_org_cluster_maintenance: Config,
+) -> AsyncIterator[SecretsApiEndpoints]:
+    app = await create_app(config_org_cluster_maintenance)
+    async with create_local_app_server(app, port=8082) as address:
         yield SecretsApiEndpoints(address=address)
 
 
@@ -526,3 +545,59 @@ class TestApi:
                 {"key": "k1", "owner": user1.name, "org_name": org_name},
                 {"key": "k1", "owner": user2.name, "org_name": org_name},
             ]
+
+    async def test_post_secret_cluster_maintenance(
+        self,
+        secrets_api_cluster_maintenance: SecretsApiEndpoints,
+        on_maintenance_cluster_name: str,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory(
+            override_cluster_name=on_maintenance_cluster_name
+        )
+        payload: dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        async with client.post(
+            secrets_api_cluster_maintenance.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPServiceUnavailable.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert "maintenance" in resp_payload["error"]
+
+    async def test_post_secret_org_cluster_maintenance(
+        self,
+        secrets_api_org_cluster_maintenance: SecretsApiEndpoints,
+        on_maintenance_org_cluster_name: str,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory(
+            override_cluster_name=on_maintenance_org_cluster_name, org_name="org"
+        )
+        payload: dict[str, Any] = {"key": "kkkk", "value": "vvvv", "org_name": "org"}
+        async with client.post(
+            secrets_api_org_cluster_maintenance.endpoint,
+            headers=user.headers,
+            json=payload,
+        ) as resp:
+            assert resp.status == HTTPServiceUnavailable.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert "maintenance" in resp_payload["error"]
+
+    async def test_post_secret_org_cluster_maintenance_ok_base_cluster(
+        self,
+        secrets_api_org_cluster_maintenance: SecretsApiEndpoints,
+        on_maintenance_org_cluster_name: str,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+    ) -> None:
+        user = await regular_user_factory(
+            override_cluster_name=on_maintenance_org_cluster_name
+        )
+        payload: dict[str, Any] = {"key": "kkkk", "value": "vvvv"}
+        async with client.post(
+            secrets_api_org_cluster_maintenance.endpoint,
+            headers=user.headers,
+            json=payload,
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()

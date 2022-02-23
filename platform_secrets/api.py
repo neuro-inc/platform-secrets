@@ -21,6 +21,7 @@ from aiohttp.web import (
 )
 from aiohttp.web_urldispatcher import AbstractRoute
 from aiohttp_security import check_authorized
+from neuro_admin_client import AdminClient
 from neuro_auth_client import (
     AuthClient,
     ClientSubTreeViewRoot,
@@ -29,6 +30,7 @@ from neuro_auth_client import (
     check_permissions,
 )
 from neuro_auth_client.security import AuthScheme, setup_security
+from neuro_config_client import ConfigClient
 from neuro_logging import (
     init_logging,
     make_sentry_trace_config,
@@ -38,6 +40,7 @@ from neuro_logging import (
     setup_zipkin,
     setup_zipkin_tracer,
 )
+from neuro_maintenance_checker import MaintenanceChecker
 
 from .config import Config, CORSConfig, KubeConfig
 from .config_factory import EnvironConfigFactory
@@ -86,6 +89,14 @@ class SecretsApiHandler:
                 aiohttp.web.delete("/{key}", self.handle_delete),
             ]
         )
+
+    @property
+    def _maintenance_checker(self) -> MaintenanceChecker:
+        return self._app["maintenance_checker"]
+
+    @property
+    def _cluster_name(self) -> str:
+        return self._app["cluster_name"]
 
     @property
     def _service(self) -> Service:
@@ -149,6 +160,9 @@ class SecretsApiHandler:
         payload = await request.json()
         payload = secret_request_validator.check(payload)
         org_name = payload.get("org_name")
+        await self._maintenance_checker.check_for_maintenance(
+            self._cluster_name, org_name, check_storage=False
+        )
         await check_permissions(
             request, [self._get_user_secrets_write_perm(user, org_name)]
         )
@@ -173,6 +187,10 @@ class SecretsApiHandler:
             for secret in await self._service.get_all_secrets()
             if self._check_secret_read_perm(secret, tree)
         ]
+        for secret in secrets:
+            await self._maintenance_checker.check_for_maintenance(
+                self._cluster_name, secret.org_name, check_storage=False
+            )
         resp_payload = [self._convert_secret_to_payload(secret) for secret in secrets]
         resp_payload = secret_list_response_validator.check(resp_payload)
         return json_response(resp_payload)
@@ -180,6 +198,9 @@ class SecretsApiHandler:
     async def handle_delete(self, request: Request) -> Response:
         user = await self._get_untrusted_user(request)
         org_name = request.query.get("org_name")
+        await self._maintenance_checker.check_for_maintenance(
+            self._cluster_name, org_name, check_storage=False
+        )
         await check_permissions(
             request, [self._get_user_secrets_write_perm(user, org_name)]
         )
@@ -309,7 +330,29 @@ async def create_app(config: Config) -> aiohttp.web.Application:
                 )
             )
 
+            logger.info("Initializing Admin client")
+            admin_client = await exit_stack.enter_async_context(
+                AdminClient(
+                    base_url=config.platform_admin.url,
+                    service_token=config.platform_admin.token,
+                )
+            )
+
+            logger.info("Initializing Config client")
+            config_client = await exit_stack.enter_async_context(
+                ConfigClient(
+                    url=config.platform_config.url,
+                    token=config.platform_config.token,
+                )
+            )
+
+            maintenance_checker = MaintenanceChecker(admin_client, config_client)
+
+            await exit_stack.enter_async_context(maintenance_checker.run_poller())
+
             logger.info("Initializing Service")
+            app["secrets_app"]["maintenance_checker"] = maintenance_checker
+            app["secrets_app"]["cluster_name"] = config.cluster_name
             app["secrets_app"]["service"] = Service(kube_client)
             app["secrets_app"]["auth_client"] = auth_client
 

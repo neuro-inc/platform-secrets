@@ -18,6 +18,18 @@ class PlatformAuthConfig:
     token: str = field(repr=False)
 
 
+@dataclass(frozen=True)
+class PlatformAdminConfig:
+    url: Optional[URL]
+    token: str = field(repr=False)
+
+
+@dataclass(frozen=True)
+class PlatformConfigConfig:
+    url: URL
+    token: str = field(repr=False)
+
+
 class KubeClientAuthType(str, enum.Enum):
     NONE = "none"
     TOKEN = "token"
@@ -48,7 +60,7 @@ class KubeConfig:
 class ZipkinConfig:
     url: URL
     app_name: str = "platform-secrets"
-    sample_rate: float = 0
+    sample_rate: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -56,13 +68,15 @@ class SentryConfig:
     dsn: URL
     cluster_name: str
     app_name: str = "platform-secrets"
-    sample_rate: float = 0
+    sample_rate: float = 0.0
 
 
 @dataclass(frozen=True)
 class Config:
     server: ServerConfig
     platform_auth: PlatformAuthConfig
+    platform_admin: PlatformAdminConfig
+    platform_config: PlatformConfigConfig
     kube: KubeConfig
     cors: CORSConfig
     cluster_name: str

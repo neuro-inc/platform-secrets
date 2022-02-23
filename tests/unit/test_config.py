@@ -9,7 +9,9 @@ from platform_secrets.config import (
     CORSConfig,
     KubeClientAuthType,
     KubeConfig,
+    PlatformAdminConfig,
     PlatformAuthConfig,
+    PlatformConfigConfig,
     SentryConfig,
     ServerConfig,
     ZipkinConfig,
@@ -38,12 +40,22 @@ def test_create_default() -> None:
     environ: dict[str, Any] = {
         "NP_SECRETS_PLATFORM_AUTH_URL": "-",
         "NP_SECRETS_PLATFORM_AUTH_TOKEN": "platform-auth-token",
+        "NP_SECRETS_PLATFORM_ADMIN_URL": "-",
+        "NP_SECRETS_PLATFORM_CONFIG_URL": "http://config",
         "NP_SECRETS_K8S_API_URL": "https://localhost:8443",
     }
     config = EnvironConfigFactory(environ).create()
     assert config == Config(
         server=ServerConfig(host="0.0.0.0", port=8080),
         platform_auth=PlatformAuthConfig(url=None, token="platform-auth-token"),
+        platform_admin=PlatformAdminConfig(
+            url=None,
+            token="platform-auth-token",
+        ),
+        platform_config=PlatformConfigConfig(
+            url=URL("http://config"),
+            token="platform-auth-token",
+        ),
         kube=KubeConfig(
             endpoint_url="https://localhost:8443",
             auth_type=KubeClientAuthType.CERTIFICATE,
@@ -59,6 +71,8 @@ def test_create_custom(cert_authority_path: str, token_path: str) -> None:
         "NP_SECRETS_API_PORT": 8080,
         "NP_SECRETS_PLATFORM_AUTH_URL": "http://platformauthapi/api/v1",
         "NP_SECRETS_PLATFORM_AUTH_TOKEN": "platform-auth-token",
+        "NP_SECRETS_PLATFORM_ADMIN_URL": "http://admin",
+        "NP_SECRETS_PLATFORM_CONFIG_URL": "http://config",
         "NP_SECRETS_K8S_API_URL": "https://localhost:8443",
         "NP_SECRETS_K8S_AUTH_TYPE": "token",
         "NP_SECRETS_K8S_CA_PATH": cert_authority_path,
@@ -80,6 +94,14 @@ def test_create_custom(cert_authority_path: str, token_path: str) -> None:
         server=ServerConfig(host="0.0.0.0", port=8080),
         platform_auth=PlatformAuthConfig(
             url=URL("http://platformauthapi/api/v1"), token="platform-auth-token"
+        ),
+        platform_admin=PlatformAdminConfig(
+            url=URL("http://admin"),
+            token="platform-auth-token",
+        ),
+        platform_config=PlatformConfigConfig(
+            url=URL("http://config"),
+            token="platform-auth-token",
         ),
         kube=KubeConfig(
             endpoint_url="https://localhost:8443",

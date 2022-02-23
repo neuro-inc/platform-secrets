@@ -11,7 +11,9 @@ from .config import (
     CORSConfig,
     KubeClientAuthType,
     KubeConfig,
+    PlatformAdminConfig,
     PlatformAuthConfig,
+    PlatformConfigConfig,
     SentryConfig,
     ServerConfig,
     ZipkinConfig,
@@ -36,6 +38,8 @@ class EnvironConfigFactory:
         return Config(
             server=self._create_server(),
             platform_auth=self._create_platform_auth(),
+            platform_config=self._create_platform_config(),
+            platform_admin=self._create_platform_admin(),
             kube=self._create_kube(),
             cluster_name=cluster_name,
             cors=self.create_cors(),
@@ -52,6 +56,17 @@ class EnvironConfigFactory:
         url = self._get_url("NP_SECRETS_PLATFORM_AUTH_URL")
         token = self._environ["NP_SECRETS_PLATFORM_AUTH_TOKEN"]
         return PlatformAuthConfig(url=url, token=token)
+
+    def _create_platform_admin(self) -> PlatformAdminConfig:
+        url = self._get_url("NP_SECRETS_PLATFORM_ADMIN_URL")
+        token = self._environ["NP_SECRETS_PLATFORM_AUTH_TOKEN"]
+        return PlatformAdminConfig(url=url, token=token)
+
+    def _create_platform_config(self) -> PlatformConfigConfig:
+        url = self._get_url("NP_SECRETS_PLATFORM_CONFIG_URL")
+        assert url
+        token = self._environ["NP_SECRETS_PLATFORM_AUTH_TOKEN"]
+        return PlatformConfigConfig(url=url, token=token)
 
     def _create_kube(self) -> KubeConfig:
         endpoint_url = self._environ["NP_SECRETS_K8S_API_URL"]
