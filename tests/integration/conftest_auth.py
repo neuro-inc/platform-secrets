@@ -5,7 +5,7 @@ from typing import Optional
 import pytest
 from aiohttp.hdrs import AUTHORIZATION
 from jose import jwt
-from neuro_auth_client import AuthClient, Cluster, Permission, User as AuthClientUser
+from neuro_auth_client import AuthClient, Permission, User as AuthClientUser
 from yarl import URL
 
 from platform_secrets.config import PlatformAuthConfig
@@ -74,7 +74,7 @@ async def regular_user_factory(
     ) -> _User:
         if not name:
             name = f"user-{random_name()}"
-        user = AuthClientUser(name=name, clusters=[Cluster(name=cluster_name)])
+        user = AuthClientUser(name=name)
         await auth_client.add_user(user, token=admin_token)
         if not skip_grant:
             # Grant permissions to the user home directory
