@@ -7,6 +7,7 @@ from typing import Any, Optional
 from urllib.parse import urlsplit
 
 import aiohttp
+from yarl import URL
 
 from .config import KubeClientAuthType
 
@@ -239,8 +240,12 @@ class KubeClient:
         self._cleanup_secret_payload(payload)
         return payload
 
-    async def list_secrets(self) -> list[dict[str, Any]]:
-        url = self._generate_all_secrets_url()
+    async def list_secrets(
+        self, label_selector: Optional[str] = None
+    ) -> list[dict[str, Any]]:
+        url = URL(self._generate_all_secrets_url())
+        if label_selector:
+            url = url.with_query(labelSelector=label_selector)
         payload = await self._request(method="GET", url=url)
         self._raise_for_status(payload)
         items = payload.get("items", [])

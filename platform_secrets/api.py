@@ -106,57 +106,72 @@ class SecretsApiHandler:
     def _get_org_secrets_uri(self, org_name: str) -> str:
         return f"{self._secret_cluster_uri}/{org_name}"
 
-    def _get_user_secrets_uri(self, user: User, org_name: Optional[str]) -> str:
+    def _get_user_secrets_or_project_uri(
+        self, user: User, org_name: Optional[str], project_name: str
+    ) -> str:
         if org_name is None:
             base = self._secret_cluster_uri
         else:
             base = self._get_org_secrets_uri(org_name)
-        return f"{base}/{user.name}"
+        if user.name == project_name:
+            return f"{base}/{user.name}"
+        return f"{base}/{project_name}"
 
-    def _get_user_secrets_read_perm(
-        self, user: User, org_name: Optional[str]
+    def _get_secret_or_project_uri(self, secret: Secret) -> str:
+        if secret.org_name:
+            base = self._get_org_secrets_uri(secret.org_name)
+        else:
+            base = self._secret_cluster_uri
+        if secret.owner == secret.project_name:
+            return f"{base}/{secret.owner}/{secret.key}"
+        return f"{base}/{secret.project_name}"
+
+    def _get_secret_read_perm(self, secret: Secret) -> Permission:
+        return Permission(self._get_secret_or_project_uri(secret), "read")
+
+    def _get_secrets_write_perm(
+        self, user: User, org_name: Optional[str], project_name: str
     ) -> Permission:
-        return Permission(self._get_user_secrets_uri(user, org_name), "read")
-
-    def _get_user_secrets_write_perm(
-        self, user: User, org_name: Optional[str]
-    ) -> Permission:
-        return Permission(self._get_user_secrets_uri(user, org_name), "write")
-
-    def _convert_secret_to_payload(self, secret: Secret) -> dict[str, Optional[str]]:
-        return {"key": secret.key, "owner": secret.owner, "org_name": secret.org_name}
+        return Permission(
+            self._get_user_secrets_or_project_uri(
+                user, org_name=org_name, project_name=project_name
+            ),
+            "write",
+        )
 
     def _check_secret_read_perm(
         self, secret: Secret, tree: ClientSubTreeViewRoot
     ) -> bool:
-        node = tree.sub_tree
-        if node.can_read():
-            return True
-        parts = secret.owner.split("/") + [secret.key]
-        if secret.org_name:
-            parts = [secret.org_name] + parts
-        try:
-            for part in parts:
-                if node.can_read():
-                    return True
-                node = node.children[part]
-            return node.can_read()
-        except KeyError:
-            return False
+        return tree.allows(self._get_secret_read_perm(secret))
+
+    def _convert_secret_to_payload(self, secret: Secret) -> dict[str, Optional[str]]:
+        return {
+            "key": secret.key,
+            "owner": secret.owner,
+            "org_name": secret.org_name,
+            "project_name": secret.project_name,
+        }
 
     async def handle_post(self, request: Request) -> Response:
         user = await self._get_untrusted_user(request)
         payload = await request.json()
         payload = secret_request_validator.check(payload)
         org_name = payload.get("org_name")
+        project_name = payload.get("project_name", user.name)
         await check_permissions(
-            request, [self._get_user_secrets_write_perm(user, org_name)]
+            request,
+            [
+                self._get_secrets_write_perm(
+                    user, org_name=org_name, project_name=project_name
+                )
+            ],
         )
         secret = Secret(
             key=payload["key"],
             value=payload["value"],
             owner=user.name,
             org_name=org_name,
+            project_name=project_name,
         )
         await self._service.add_secret(secret)
         resp_payload = self._convert_secret_to_payload(secret)
@@ -165,12 +180,16 @@ class SecretsApiHandler:
 
     async def handle_get_all(self, request: Request) -> Response:
         username = await check_authorized(request)
+        org_name = request.query.get("org_name")
+        project_name = request.query.get("project_name")
         tree = await self._auth_client.get_permissions_tree(
             username, self._secret_cluster_uri
         )
         secrets = [
             secret
-            for secret in await self._service.get_all_secrets()
+            for secret in await self._service.get_all_secrets(
+                org_name=org_name, project_name=project_name
+            )
             if self._check_secret_read_perm(secret, tree)
         ]
         resp_payload = [self._convert_secret_to_payload(secret) for secret in secrets]
@@ -180,12 +199,23 @@ class SecretsApiHandler:
     async def handle_delete(self, request: Request) -> Response:
         user = await self._get_untrusted_user(request)
         org_name = request.query.get("org_name")
+        project_name = request.query.get("project_name") or user.name
         await check_permissions(
-            request, [self._get_user_secrets_write_perm(user, org_name)]
+            request,
+            [
+                self._get_secrets_write_perm(
+                    user, org_name=org_name, project_name=project_name
+                )
+            ],
         )
         secret_key = request.match_info["key"]
         secret_key = secret_key_validator.check(secret_key)
-        secret = Secret(key=secret_key, owner=user.name, org_name=org_name)
+        secret = Secret(
+            key=secret_key,
+            owner=user.name,
+            org_name=org_name,
+            project_name=project_name,
+        )
         try:
             await self._service.remove_secret(secret)
         except SecretNotFound as exc:

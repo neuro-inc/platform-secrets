@@ -64,7 +64,7 @@ async def kube_config(
     return kube_config
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 async def kube_client(kube_config: KubeConfig) -> AsyncIterator[KubeClient]:
     # TODO (A Danshyn 06/06/18): create a factory method
     client = KubeClient(
@@ -83,7 +83,7 @@ async def kube_client(kube_config: KubeConfig) -> AsyncIterator[KubeClient]:
     async def _drop_all_secrets(client: KubeClient) -> None:
         for item in await client.list_secrets():
             secret_name: str = item["metadata"]["name"]
-            if secret_name.startswith("user--") or secret_name.startswith("org--"):
+            if secret_name.startswith("user--"):
                 await client.remove_secret(secret_name)
 
     async with client:

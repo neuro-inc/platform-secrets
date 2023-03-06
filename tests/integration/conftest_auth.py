@@ -9,7 +9,6 @@ from neuro_auth_client import AuthClient, Permission, User as AuthClientUser
 from yarl import URL
 
 from platform_secrets.config import PlatformAuthConfig
-
 from tests.integration.conftest import get_service_url, random_name
 
 
@@ -71,27 +70,35 @@ async def regular_user_factory(
         skip_grant: bool = False,
         org_name: Optional[str] = None,
         org_level: bool = False,
+        project_name: Optional[str] = None,
     ) -> _User:
         if not name:
             name = f"user-{random_name()}"
         user = AuthClientUser(name=name)
         await auth_client.add_user(user, token=admin_token)
         if not skip_grant:
-            # Grant permissions to the user home directory
-            if org_name is None:
-                permission = Permission(
-                    uri=f"secret://{cluster_name}/{name}", action="write"
+            org_path = f"/{org_name}" if org_name else ""
+            project_path = f"/{project_name}" if project_name else ""
+            name_path = "" if org_level else f"/{name}"
+            permissions = [
+                Permission(uri=f"secret://{cluster_name}/{name}", action="write")
+            ]
+            if org_path:
+                permissions.append(
+                    Permission(
+                        uri=f"secret://{cluster_name}{org_path}{name_path}",
+                        action="write",
+                    )
                 )
-            elif org_level:
-                permission = Permission(
-                    uri=f"secret://{cluster_name}/{org_name}", action="write"
-                )
-            else:
-                permission = Permission(
-                    uri=f"secret://{cluster_name}/{org_name}/{name}", action="write"
+            if project_path:
+                permissions.append(
+                    Permission(
+                        uri=f"secret://{cluster_name}{org_path}{project_path}",
+                        action="write",
+                    )
                 )
             await auth_client.grant_user_permissions(
-                name, [permission], token=admin_token
+                name, permissions, token=admin_token
             )
 
         return _User(name=user.name, token=token_factory(user.name))
@@ -109,6 +116,24 @@ async def share_secret(
     async def _do_grant(username: str, owner: str, key: str) -> None:
         permission = Permission(
             uri=f"secret://{cluster_name}/{owner}/{key}", action="write"
+        )
+        await auth_client.grant_user_permissions(
+            username, [permission], token=admin_token
+        )
+
+    yield _do_grant
+
+
+@pytest.fixture
+async def share_project(
+    auth_client: AuthClient,
+    token_factory: Callable[[str], str],
+    admin_token: str,
+    cluster_name: str,
+) -> AsyncIterator[Callable[[str, str], Awaitable[None]]]:
+    async def _do_grant(username: str, project: str) -> None:
+        permission = Permission(
+            uri=f"secret://{cluster_name}/{project}", action="write"
         )
         await auth_client.grant_user_permissions(
             username, [permission], token=admin_token
