@@ -121,13 +121,12 @@ class Service:
         self, payload: dict[str, Any], with_values: bool = False
     ) -> list[Secret]:
         result = []
-        name = payload["metadata"]["name"]
         labels = payload["metadata"].get("labels", {})
         org_name = labels.get(SECRET_API_ORG_LABEL)
         project_name = labels.get(PROJECT_LABEL)
         owner = labels.get(USER_LABEL, "").replace("--", "/")
         owner = owner or self._get_owner_from_secret_name(
-            name, org_name=org_name, project_name=project_name
+            payload["metadata"]["name"], org_name=org_name, project_name=project_name
         )
         project_name = project_name or owner
         if not owner:
