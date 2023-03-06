@@ -139,11 +139,6 @@ class SecretsApiHandler:
             "write",
         )
 
-    def _check_secret_read_perm(
-        self, secret: Secret, tree: ClientSubTreeViewRoot
-    ) -> bool:
-        return tree.allows(self._get_secret_read_perm(secret))
-
     def _convert_secret_to_payload(self, secret: Secret) -> dict[str, Optional[str]]:
         return {
             "key": secret.key,
@@ -151,6 +146,11 @@ class SecretsApiHandler:
             "org_name": secret.org_name,
             "project_name": secret.project_name,
         }
+
+    def _check_secret_read_perm(
+        self, secret: Secret, tree: ClientSubTreeViewRoot
+    ) -> bool:
+        return tree.allows(self._get_secret_read_perm(secret))
 
     async def handle_post(self, request: Request) -> Response:
         user = await self._get_untrusted_user(request)
