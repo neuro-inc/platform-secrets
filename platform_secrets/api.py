@@ -106,45 +106,42 @@ class SecretsApiHandler:
     def _get_org_secrets_uri(self, org_name: str) -> str:
         return f"{self._secret_cluster_uri}/{org_name}"
 
-    def _get_user_secrets_or_project_uri(
-        self, user: User, org_name: Optional[str], project_name: str
-    ) -> str:
+    def _get_secrets_uri(self, project_name: str, org_name: Optional[str]) -> str:
         if org_name is None:
             base = self._secret_cluster_uri
         else:
             base = self._get_org_secrets_uri(org_name)
-        if user.name == project_name:
-            return f"{base}/{user.name}"
         return f"{base}/{project_name}"
 
-    def _get_secret_or_project_uri(self, secret: Secret) -> str:
-        if secret.org_name:
-            base = self._get_org_secrets_uri(secret.org_name)
-        else:
-            base = self._secret_cluster_uri
+    def _get_secret_uri(self, secret: Secret) -> str:
+        base = self._get_secrets_uri(secret.project_name, secret.org_name)
         if secret.owner == secret.project_name:
-            return f"{base}/{secret.owner}/{secret.key}"
-        return f"{base}/{secret.project_name}"
+            return f"{base}/{secret.key}"
+        return base
 
     def _get_secret_read_perm(self, secret: Secret) -> Permission:
-        return Permission(self._get_secret_or_project_uri(secret), "read")
+        return Permission(self._get_secret_uri(secret), "read")
 
     def _get_secrets_write_perm(
-        self, user: User, org_name: Optional[str], project_name: str
+        self, project_name: str, org_name: Optional[str]
     ) -> Permission:
         return Permission(
-            self._get_user_secrets_or_project_uri(
-                user, org_name=org_name, project_name=project_name
-            ),
+            self._get_secrets_uri(project_name, org_name),
             "write",
         )
 
     def _convert_secret_to_payload(self, secret: Secret) -> dict[str, Optional[str]]:
         return {
             "key": secret.key,
-            "owner": secret.owner,
             "org_name": secret.org_name,
             "project_name": secret.project_name,
+            # NOTE: We store all keys in one k8s secret. Project secret
+            # can contain keys from multiple users, so there is no
+            # single owner of k8s secret, we loose owner when we work
+            # with project secrets.
+            # For backward compatibility leave `owner` field. It will
+            # contain username for secrets without project.
+            "owner": secret.project_name,
         }
 
     def _check_secret_read_perm(
@@ -160,11 +157,7 @@ class SecretsApiHandler:
         project_name = payload.get("project_name", user.name)
         await check_permissions(
             request,
-            [
-                self._get_secrets_write_perm(
-                    user, org_name=org_name, project_name=project_name
-                )
-            ],
+            [self._get_secrets_write_perm(project_name, org_name)],
         )
         secret = Secret(
             key=payload["key"],
@@ -202,17 +195,12 @@ class SecretsApiHandler:
         project_name = request.query.get("project_name") or user.name
         await check_permissions(
             request,
-            [
-                self._get_secrets_write_perm(
-                    user, org_name=org_name, project_name=project_name
-                )
-            ],
+            [self._get_secrets_write_perm(project_name, org_name)],
         )
         secret_key = request.match_info["key"]
         secret_key = secret_key_validator.check(secret_key)
         secret = Secret(
             key=secret_key,
-            owner=user.name,
             org_name=org_name,
             project_name=project_name,
         )

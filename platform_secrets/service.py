@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 from .kube_client import (
     KubeClient,
@@ -26,8 +26,8 @@ class SecretNotFound(Exception):
 @dataclass(frozen=True)
 class Secret:
     key: str
-    owner: str
     project_name: str
+    owner: Optional[str] = None
     value: str = field(repr=False, default="")
     org_name: Optional[str] = None
 
@@ -36,21 +36,14 @@ class Service:
     def __init__(self, kube_client: KubeClient) -> None:
         self._kube_client = kube_client
 
-    def _get_kube_secret_name(
-        self, owner: str, project_name: str, org_name: Optional[str]
-    ) -> str:
-        path = owner
-        if owner != project_name:
-            path = f"{project_name}/{path}"
+    def _get_kube_secret_name(self, project_name: str, org_name: Optional[str]) -> str:
+        path = project_name
         if org_name:
             path = f"{org_name}/{path}"
         return f"user--{path.replace('/', '--')}--secrets"
 
     def _get_owner_from_secret_name(
-        self,
-        secret_name: str,
-        org_name: Optional[str],
-        project_name: Optional[str],
+        self, secret_name: str, org_name: Optional[str]
     ) -> Optional[str]:
         username = None
         match = re.fullmatch(r"user--(?P<user_name>.*)--secrets", secret_name)
@@ -59,29 +52,24 @@ class Service:
             if org_name:
                 assert path.startswith(org_name + "/")
                 _, path = path.split("/", 1)
-            if project_name:
-                assert path.startswith(project_name + "/")
-                _, username = path.split("/", 1)
             else:
                 username = path
         return username
 
     async def add_secret(self, secret: Secret) -> None:
-        secret_name = self._get_kube_secret_name(
-            secret.owner, project_name=secret.project_name, org_name=secret.org_name
-        )
+        secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
         try:
             try:
                 await self._kube_client.add_secret_key(
                     secret_name, secret.key, secret.value
                 )
             except ResourceNotFound:
-                labels = {
-                    USER_LABEL: secret.owner.replace("/", "--"),
-                }
+                labels = {}
                 if secret.org_name:
                     labels[SECRET_API_ORG_LABEL] = secret.org_name
-                if secret.project_name != secret.owner:
+                if secret.project_name == secret.owner:
+                    labels[USER_LABEL] = secret.owner.replace("/", "--")
+                else:
                     labels[PROJECT_LABEL] = secret.project_name
                 await self._kube_client.create_secret(
                     secret_name, {secret.key: secret.value}, labels=labels
@@ -91,9 +79,7 @@ class Service:
             raise ValueError(f"Secret key {secret.key!r} or its value not valid")
 
     async def remove_secret(self, secret: Secret) -> None:
-        secret_name = self._get_kube_secret_name(
-            secret.owner, project_name=secret.project_name, org_name=secret.org_name
-        )
+        secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
         try:
             await self._kube_client.remove_secret_key(secret_name, secret.key)
         except (ResourceNotFound, ResourceInvalid):
@@ -114,42 +100,36 @@ class Service:
         payload = await self._kube_client.list_secrets(label_selector)
         result = []
         for item in payload:
-            result += self._convert_payload_to_secrets(item, with_values=with_values)
-        return result
-
-    def _convert_payload_to_secrets(
-        self, payload: dict[str, Any], with_values: bool = False
-    ) -> list[Secret]:
-        result = []
-        labels = payload["metadata"].get("labels", {})
-        org_name = labels.get(SECRET_API_ORG_LABEL)
-        project_name = labels.get(PROJECT_LABEL)
-        owner = labels.get(USER_LABEL, "").replace("--", "/")
-        owner = owner or self._get_owner_from_secret_name(
-            payload["metadata"]["name"], org_name=org_name, project_name=project_name
-        )
-        project_name = project_name or owner
-        if not owner:
-            return []
-        if with_values:
-            result += [
-                Secret(
-                    key=key,
-                    value=value,
-                    owner=owner,
-                    org_name=org_name,
-                    project_name=project_name,
+            labels = item["metadata"].get("labels", {})
+            owner = None
+            org_name = labels.get(SECRET_API_ORG_LABEL)
+            project_name = labels.get(PROJECT_LABEL)
+            if not project_name:
+                owner = self._get_owner_from_secret_name(
+                    item["metadata"]["name"], org_name
                 )
-                for key, value in payload.get("data", {}).items()
-            ]
-        else:
-            result += [
-                Secret(
-                    key=key,
-                    owner=owner,
-                    org_name=org_name,
-                    project_name=project_name,
-                )
-                for key in payload.get("data", {}).keys()
-            ]
+                project_name = owner
+            if not project_name:
+                continue
+            if with_values:
+                result += [
+                    Secret(
+                        key=key,
+                        value=value,
+                        owner=owner,
+                        project_name=project_name,
+                        org_name=org_name,
+                    )
+                    for key, value in item.get("data", {}).items()
+                ]
+            else:
+                result += [
+                    Secret(
+                        key=key,
+                        owner=owner,
+                        project_name=project_name,
+                        org_name=org_name,
+                    )
+                    for key in item.get("data", {}).keys()
+                ]
         return result

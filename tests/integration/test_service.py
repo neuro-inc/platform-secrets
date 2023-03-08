@@ -1,4 +1,5 @@
 import base64
+from dataclasses import replace
 
 import pytest
 from neuro_auth_client import User
@@ -26,7 +27,7 @@ class TestService:
     async def test_add_secret_valid_key(self, service: Service, key: str) -> None:
         user = User(name=random_name())
         secret = Secret(
-            key, user.name, "test-project", base64.b64encode(b"testvalue").decode()
+            key, "test-project", user.name, base64.b64encode(b"testvalue").decode()
         )
         await service.add_secret(secret)
 
@@ -35,13 +36,15 @@ class TestService:
         user = User(name=random_name())
         secret = Secret(
             key,
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue").decode(),
             org_name="test",
         )
         await service.add_secret(secret)
-        assert set(await service.get_all_secrets(with_values=True)) == {secret}
+        assert set(await service.get_all_secrets(with_values=True)) == {
+            replace(secret, owner=None)
+        }
 
     async def test_add_secret_invalid_value(self, service: Service) -> None:
         user = User(name=random_name())
@@ -66,14 +69,14 @@ class TestService:
         user = User(name=random_name())
         secret = Secret(
             "testkey",
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret)
 
         secrets = await service.get_all_secrets()
-        assert set(secrets) == {Secret("testkey", user.name, "test-project")}
+        assert set(secrets) == {Secret("testkey", "test-project")}
 
         await service.remove_secret(secret)
 
@@ -85,16 +88,16 @@ class TestService:
 
         secret = Secret(
             "a" * 253,
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue1").decode(),
         )
         await service.add_secret(secret)
 
         secret = Secret(
             "a" * 254,
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue1").decode(),
         )
         with pytest.raises(
@@ -107,16 +110,16 @@ class TestService:
 
         secret = Secret(
             "a" * 253,
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"v" * 1 * 1024 * 1024).decode(),
         )
         await service.add_secret(secret)
 
         secret = Secret(
             "a" * 253,
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"v" * (1 * 1024 * 1024 + 1)).decode(),
         )
         with pytest.raises(
@@ -129,37 +132,37 @@ class TestService:
 
         secret = Secret(
             "testkey",
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue1").decode(),
         )
         await service.add_secret(secret)
         secrets = await service.get_all_secrets(with_values=True)
-        assert set(secrets) == {secret}
+        assert set(secrets) == {replace(secret, owner=None)}
 
         secret = Secret(
             "testkey",
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue2").decode(),
         )
         await service.add_secret(secret)
         secrets = await service.get_all_secrets(with_values=True)
-        assert set(secrets) == {secret}
+        assert set(secrets) == {replace(secret, owner=None)}
 
     async def test_remove_secret_key_not_found(self, service: Service) -> None:
         user = User(name=random_name())
         secret1 = Secret(
             "testkey1",
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret1)
         secret2 = Secret(
             "testkey2",
-            user.name,
             "test-project",
+            user.name,
             base64.b64encode(b"testvalue").decode(),
         )
         with pytest.raises(SecretNotFound, match="Secret 'testkey2' not found"):
@@ -169,15 +172,15 @@ class TestService:
         user1 = User(name=random_name())
         secret1 = Secret(
             "testkey1",
-            user1.name,
             "test-project",
+            user1.name,
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret1)
         secret2 = Secret(
             "testkey2",
-            user1.name,
             "test-project",
+            user1.name,
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret2)
@@ -185,31 +188,31 @@ class TestService:
         user2 = User(name=random_name())
         secret3 = Secret(
             "testkey3",
-            user2.name,
             "test-project",
+            user2.name,
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret3)
 
         secrets = await service.get_all_secrets()
         assert set(secrets) == {
-            Secret("testkey1", user1.name, "test-project"),
-            Secret("testkey2", user1.name, "test-project"),
-            Secret("testkey3", user2.name, "test-project"),
+            Secret("testkey1", "test-project"),
+            Secret("testkey2", "test-project"),
+            Secret("testkey3", "test-project"),
         }
 
         await service.remove_secret(secret2)
 
         secrets = await service.get_all_secrets()
         assert set(secrets) == {
-            Secret("testkey1", user1.name, "test-project"),
-            Secret("testkey3", user2.name, "test-project"),
+            Secret("testkey1", "test-project"),
+            Secret("testkey3", "test-project"),
         }
 
     async def test_add_remove_add_secret(self, service: Service) -> None:
         user1 = User(name=random_name())
         secret1 = Secret(
-            "testkey1", user1.name, "test-project", base64.b64encode(b"value").decode()
+            "testkey1", "test-project", user1.name, base64.b64encode(b"value").decode()
         )
         await service.add_secret(secret1)
 
@@ -220,7 +223,7 @@ class TestService:
 
         await service.add_secret(secret1)
         secrets = await service.get_all_secrets()
-        assert set(secrets) == {Secret("testkey1", user1.name, "test-project")}
+        assert set(secrets) == {Secret("testkey1", "test-project")}
 
     async def test_get_secrets_empty(self, service: Service) -> None:
         secrets = await service.get_all_secrets()

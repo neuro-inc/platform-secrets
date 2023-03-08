@@ -274,7 +274,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "kkkk",
-                "owner": user.name,
+                "owner": "test-project",
                 "org_name": None,
                 "project_name": "test-project",
             }
@@ -285,7 +285,7 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "kkkk",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": None,
                     "project_name": "test-project",
                 }
@@ -345,7 +345,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "kkkk",
-                "owner": user.name,
+                "owner": "test-project",
                 "org_name": "test-org",
                 "project_name": "test-project",
             }
@@ -356,7 +356,7 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "kkkk",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": "test-org",
                     "project_name": "test-project",
                 }
@@ -416,7 +416,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": user.name,
+                "owner": "test-project",
                 "org_name": None,
                 "project_name": "test-project",
             }
@@ -428,7 +428,7 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": None,
                     "project_name": "test-project",
                 }
@@ -442,7 +442,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k2",
-                "owner": user.name,
+                "owner": "test-project",
                 "org_name": None,
                 "project_name": "test-project",
             }
@@ -454,13 +454,13 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": None,
                     "project_name": "test-project",
                 },
                 {
                     "key": "k2",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": None,
                     "project_name": "test-project",
                 },
@@ -474,7 +474,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": user.name,
+                "owner": "test-project",
                 "org_name": None,
                 "project_name": "test-project",
             }
@@ -487,7 +487,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": user.name,
+                "owner": "test-project",
                 "org_name": None,
                 "project_name": "test-project",
             }
@@ -499,13 +499,13 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": None,
                     "project_name": "test-project",
                 },
                 {
                     "key": "k2",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": None,
                     "project_name": "test-project",
                 },
@@ -523,7 +523,7 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k2",
-                    "owner": user.name,
+                    "owner": "test-project",
                     "org_name": None,
                     "project_name": "test-project",
                 },
@@ -653,7 +653,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": user1.name,
+                "owner": "test-project1",
                 "org_name": None,
                 "project_name": "test-project1",
             }
@@ -671,7 +671,7 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": user1.name,
+                    "owner": "test-project1",
                     "org_name": None,
                     "project_name": "test-project1",
                 },
@@ -705,7 +705,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": user1.name,
+                "owner": "test-project1",
                 "org_name": org_name,
                 "project_name": "test-project1",
             }
@@ -718,7 +718,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": user2.name,
+                "owner": "test-project2",
                 "org_name": org_name,
                 "project_name": "test-project2",
             }
@@ -732,13 +732,13 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": user1.name,
+                    "owner": "test-project1",
                     "org_name": org_name,
                     "project_name": "test-project1",
                 },
                 {
                     "key": "k1",
-                    "owner": user2.name,
+                    "owner": "test-project2",
                     "org_name": org_name,
                     "project_name": "test-project2",
                 },
