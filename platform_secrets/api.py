@@ -115,9 +115,7 @@ class SecretsApiHandler:
 
     def _get_secret_uri(self, secret: Secret) -> str:
         base = self._get_secrets_uri(secret.project_name, secret.org_name)
-        if secret.owner == secret.project_name:
-            return f"{base}/{secret.key}"
-        return base
+        return f"{base}/{secret.key}"
 
     def _get_secret_read_perm(self, secret: Secret) -> Permission:
         return Permission(self._get_secret_uri(secret), "read")
@@ -125,10 +123,7 @@ class SecretsApiHandler:
     def _get_secrets_write_perm(
         self, project_name: str, org_name: Optional[str]
     ) -> Permission:
-        return Permission(
-            self._get_secrets_uri(project_name, org_name),
-            "write",
-        )
+        return Permission(self._get_secrets_uri(project_name, org_name), "write")
 
     def _convert_secret_to_payload(self, secret: Secret) -> dict[str, Optional[str]]:
         return {
@@ -139,8 +134,6 @@ class SecretsApiHandler:
             # Project k8s secret can contain keys from multiple users, so
             # there is no single owner of k8s secret, we loose owner when we work
             # with project secrets.
-            # For backward compatibility leave `owner` field. It will
-            # contain username for secrets without project.
             "owner": secret.project_name,
         }
 
