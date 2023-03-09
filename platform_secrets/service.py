@@ -53,7 +53,8 @@ class Service:
                 _, username = path.split("/", 1)
             else:
                 username = path
-        return username
+            return username
+        return None
 
     async def add_secret(self, secret: Secret) -> None:
         secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
