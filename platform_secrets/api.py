@@ -135,9 +135,9 @@ class SecretsApiHandler:
             "key": secret.key,
             "org_name": secret.org_name,
             "project_name": secret.project_name,
-            # NOTE: We store all keys in one k8s secret. Project secret
-            # can contain keys from multiple users, so there is no
-            # single owner of k8s secret, we loose owner when we work
+            # NOTE: We store all user/project keys in one k8s secret.
+            # Project k8s secret can contain keys from multiple users, so
+            # there is no single owner of k8s secret, we loose owner when we work
             # with project secrets.
             # For backward compatibility leave `owner` field. It will
             # contain username for secrets without project.
