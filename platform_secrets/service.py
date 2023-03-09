@@ -45,13 +45,12 @@ class Service:
     def _get_owner_from_secret_name(
         self, secret_name: str, org_name: Optional[str]
     ) -> Optional[str]:
-        username = None
         match = re.fullmatch(r"user--(?P<user_name>.*)--secrets", secret_name)
         if match:
             path: str = match.group("user_name").replace("--", "/")
             if org_name:
                 assert path.startswith(org_name + "/")
-                _, path = path.split("/", 1)
+                _, username = path.split("/", 1)
             else:
                 username = path
         return username
