@@ -31,9 +31,15 @@ secret_request_validator = t.Dict(
         "value": secret_value_validator,
         t.Key("org_name", optional=True): t.String(min_length=1, max_length=253)
         | t.Null(),
+        t.Key("project_name", optional=True): t.String(min_length=1, max_length=253),
     }
 )
 secret_response_validator = t.Dict(
-    {"key": t.String, "owner": t.String, "org_name": t.String() | t.Null()}
+    {
+        "key": t.String,
+        "owner": t.String,
+        "org_name": t.String() | t.Null(),
+        "project_name": t.String,
+    }
 )
 secret_list_response_validator = t.List(secret_response_validator)
