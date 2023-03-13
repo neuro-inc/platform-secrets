@@ -38,3 +38,5 @@ secrets: []
 zipkin: {}
 
 sentry: {}
+
+priorityClassName: ""
