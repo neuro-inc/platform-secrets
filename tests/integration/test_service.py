@@ -6,6 +6,7 @@ from neuro_auth_client import User
 
 from platform_secrets.kube_client import KubeClient
 from platform_secrets.service import Secret, SecretNotFound, Service
+
 from tests.integration.conftest import random_name
 
 
