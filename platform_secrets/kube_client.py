@@ -210,9 +210,7 @@ class KubeClient:
         }
         headers = {"Content-Type": "application/json"}
         req_data = BytesIO(json.dumps(payload).encode())
-        await self._request(
-            method="POST", url=url, headers=headers, data=req_data
-        )
+        await self._request(method="POST", url=url, headers=headers, data=req_data)
 
     async def add_secret_key(
         self,
@@ -226,9 +224,7 @@ class KubeClient:
         headers = {"Content-Type": "application/json-patch+json"}
         patches = [{"op": "add", "path": f"/data/{key}", "value": value}]
         req_data = BytesIO(json.dumps(patches).encode())
-        await self._request(
-            method="PATCH", url=url, headers=headers, data=req_data
-        )
+        await self._request(method="PATCH", url=url, headers=headers, data=req_data)
 
     async def remove_secret(
         self, secret_name: str, *, namespace_name: Optional[str] = None
@@ -242,9 +238,7 @@ class KubeClient:
         url = self._generate_secret_url(secret_name, namespace_name)
         headers = {"Content-Type": "application/json-patch+json"}
         patches = [{"op": "remove", "path": f"/data/{key}"}]
-        await self._request(
-            method="PATCH", url=url, headers=headers, json=patches
-        )
+        await self._request(method="PATCH", url=url, headers=headers, json=patches)
 
     def _cleanup_secret_payload(self, payload: dict[str, Any]) -> None:
         data = payload.get("data", {})
