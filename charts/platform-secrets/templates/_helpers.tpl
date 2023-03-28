@@ -26,6 +26,6 @@ heritage: {{ .Release.Service | quote }}
 release: {{ .Release.Name | quote }}
 {{- end -}}
 
-{{- define "platformBuckets.kubeAuthMountRoot" -}}
+{{- define "platformSecrets.kubeAuthMountRoot" -}}
 {{- printf "/var/run/secrets/kubernetes.io/serviceaccount" -}}
 {{- end -}}

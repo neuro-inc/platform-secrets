@@ -172,7 +172,9 @@ class KubeClient:
     def _raise_for_status(self, payload: dict[str, Any]) -> None:
         kind = payload["kind"]
         if kind == "Status":
-            code = payload["code"]
+            if payload.get("status") == "Success":
+                return
+            code = payload.get("code")
             if code == 400:
                 raise ResourceBadRequest(payload)
             if code == 401:
