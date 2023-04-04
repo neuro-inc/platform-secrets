@@ -33,6 +33,10 @@ class ResourceBadRequest(KubeClientException):
     pass
 
 
+class KubeClientUnauthorized(Exception):
+    pass
+
+
 class KubeClient:
     def __init__(
         self,
@@ -150,22 +154,41 @@ class KubeClient:
 
     async def _request(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         assert self._client, "client is not initialized"
+        doing_retry = kwargs.pop("doing_retry", False)
+
         async with self._client.request(*args, **kwargs) as response:
-            # TODO (A Danshyn 05/21/18): check status code etc
             payload = await response.json()
+        try:
+            self._raise_for_status(payload)
             return payload
+        except KubeClientUnauthorized:
+            if doing_retry:
+                raise
+            # K8s SA's token might be stale, need to refresh it and retry
+            await self._reload_http_client()
+            kwargs["doing_retry"] = True
+            return await self._request(*args, **kwargs)
 
     def _raise_for_status(self, payload: dict[str, Any]) -> None:
         kind = payload["kind"]
         if kind == "Status":
-            code = payload["code"]
+            if payload.get("status") == "Success":
+                return
+            code = payload.get("code")
             if code == 400:
                 raise ResourceBadRequest(payload)
+            if code == 401:
+                raise KubeClientUnauthorized(payload)
             if code == 404:
                 raise ResourceNotFound(payload)
             if code == 422:
                 raise ResourceInvalid(payload["message"])
             raise KubeClientException(payload["message"])
+
+    async def _reload_http_client(self) -> None:
+        await self.close()
+        self._token = None
+        await self.init()
 
     async def create_secret(
         self,
@@ -187,10 +210,7 @@ class KubeClient:
         }
         headers = {"Content-Type": "application/json"}
         req_data = BytesIO(json.dumps(payload).encode())
-        payload = await self._request(
-            method="POST", url=url, headers=headers, data=req_data
-        )
-        self._raise_for_status(payload)
+        await self._request(method="POST", url=url, headers=headers, data=req_data)
 
     async def add_secret_key(
         self,
@@ -204,10 +224,7 @@ class KubeClient:
         headers = {"Content-Type": "application/json-patch+json"}
         patches = [{"op": "add", "path": f"/data/{key}", "value": value}]
         req_data = BytesIO(json.dumps(patches).encode())
-        payload = await self._request(
-            method="PATCH", url=url, headers=headers, data=req_data
-        )
-        self._raise_for_status(payload)
+        await self._request(method="PATCH", url=url, headers=headers, data=req_data)
 
     async def remove_secret(
         self, secret_name: str, *, namespace_name: Optional[str] = None
@@ -221,10 +238,7 @@ class KubeClient:
         url = self._generate_secret_url(secret_name, namespace_name)
         headers = {"Content-Type": "application/json-patch+json"}
         patches = [{"op": "remove", "path": f"/data/{key}"}]
-        payload = await self._request(
-            method="PATCH", url=url, headers=headers, json=patches
-        )
-        self._raise_for_status(payload)
+        await self._request(method="PATCH", url=url, headers=headers, json=patches)
 
     def _cleanup_secret_payload(self, payload: dict[str, Any]) -> None:
         data = payload.get("data", {})
@@ -236,7 +250,6 @@ class KubeClient:
     ) -> dict[str, Any]:
         url = self._generate_secret_url(secret_name, namespace_name)
         payload = await self._request(method="GET", url=url)
-        self._raise_for_status(payload)
         self._cleanup_secret_payload(payload)
         return payload
 
@@ -247,7 +260,6 @@ class KubeClient:
         if label_selector:
             url = url.with_query(labelSelector=label_selector)
         payload = await self._request(method="GET", url=url)
-        self._raise_for_status(payload)
         items = payload.get("items", [])
         for item in items:
             self._cleanup_secret_payload(item)

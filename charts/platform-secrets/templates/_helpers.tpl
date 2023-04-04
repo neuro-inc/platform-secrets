@@ -25,3 +25,7 @@ chart: {{ include "platformSecrets.chart" . }}
 heritage: {{ .Release.Service | quote }}
 release: {{ .Release.Name | quote }}
 {{- end -}}
+
+{{- define "platformSecrets.kubeAuthMountRoot" -}}
+{{- printf "/var/run/secrets/kubernetes.io/serviceaccount" -}}
+{{- end -}}
