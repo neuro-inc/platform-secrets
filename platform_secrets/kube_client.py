@@ -96,6 +96,10 @@ class KubeClient:
     async def init(self) -> None:
         self._client = await self.create_http_client()
 
+    async def init_if_needed(self) -> None:
+        if not self._client or self._client.closed:
+            await self.init()
+
     async def create_http_client(self) -> aiohttp.ClientSession:
         connector = aiohttp.TCPConnector(
             limit=self._conn_pool_size, ssl=self._create_ssl_context()
@@ -153,6 +157,7 @@ class KubeClient:
         return f"{all_secrets_url}/{secret_name}"
 
     async def _request(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        await self.init_if_needed()
         assert self._client, "client is not initialized"
         doing_retry = kwargs.pop("doing_retry", False)
 
