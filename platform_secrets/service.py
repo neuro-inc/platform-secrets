@@ -14,6 +14,8 @@ logger = logging.getLogger()
 
 SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"
 
+NO_ORG = "NO_ORG"
+
 
 class SecretNotFound(Exception):
     @classmethod
@@ -119,7 +121,9 @@ class Service:
         project_name: Optional[str] = None,
     ) -> list[Secret]:
         label_selectors = []
-        if org_name:
+        if org_name and org_name.upper() == NO_ORG:
+            label_selectors += [f"!{SECRET_API_ORG_LABEL}"]
+        elif org_name:
             label_selectors += [f"{SECRET_API_ORG_LABEL}={org_name}"]
         label_selector = ",".join(label_selectors) if label_selectors else None
         payload = await self._kube_client.list_secrets(label_selector)

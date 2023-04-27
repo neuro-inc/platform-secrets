@@ -191,7 +191,7 @@ class TestService:
         )
         await service.add_secret(secret3)
 
-        secrets = await service.get_all_secrets(project_name="test-user")
+        secrets = await service.get_all_secrets()
         assert set(secrets) == {
             Secret("testkey1", "test-user"),
             Secret("testkey2", "test-user"),
@@ -200,7 +200,7 @@ class TestService:
 
         await service.remove_secret(secret2)
 
-        secrets = await service.get_all_secrets(project_name="test-user")
+        secrets = await service.get_all_secrets()
         assert set(secrets) == {
             Secret("testkey1", "test-user"),
             Secret("testkey3", "test-user"),
