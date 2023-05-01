@@ -155,7 +155,6 @@ class SecretsApiHandler:
         secret = Secret(
             key=payload["key"],
             value=payload["value"],
-            owner=user.name,
             org_name=org_name,
             project_name=project_name,
         )

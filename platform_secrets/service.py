@@ -12,9 +12,9 @@ from .kube_client import (
 
 logger = logging.getLogger()
 
-USER_LABEL = "platform.neuromation.io/user"
-PROJECT_LABEL = "platform.neuromation.io/project"
 SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"
+
+NO_ORG = "NO_ORG"
 
 
 class SecretNotFound(Exception):
@@ -27,7 +27,6 @@ class SecretNotFound(Exception):
 class Secret:
     key: str
     project_name: str
-    owner: Optional[str] = None
     value: str = field(repr=False, default="")
     org_name: Optional[str] = None
 
@@ -36,16 +35,23 @@ class Service:
     def __init__(self, kube_client: KubeClient) -> None:
         self._kube_client = kube_client
 
-    def _get_kube_secret_name(self, project_name: str, org_name: Optional[str]) -> str:
+    def _get_kube_secret_name(
+        self,
+        project_name: str,
+        org_name: Optional[str],
+        *,
+        create_legacy_name: bool = False,
+    ) -> str:
         path = project_name
         if org_name:
             path = f"{org_name}/{path}"
-        return f"user--{path.replace('/', '--')}--secrets"
+        prefix = "user" if create_legacy_name else "project"
+        return f"{prefix}--{path.replace('/', '--')}--secrets"
 
-    def _get_owner_from_secret_name(
+    def _get_project_name_from_secret_name(
         self, secret_name: str, org_name: Optional[str]
     ) -> Optional[str]:
-        match = re.fullmatch(r"user--(?P<user_name>.*)--secrets", secret_name)
+        match = re.fullmatch(r"(user|project)--(?P<user_name>.*)--secrets", secret_name)
         if match:
             path: str = match.group("user_name").replace("--", "/")
             if org_name:
@@ -56,21 +62,34 @@ class Service:
             return username
         return None
 
-    async def add_secret(self, secret: Secret) -> None:
-        secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
+    async def add_secret(
+        self,
+        secret: Secret,
+        *,
+        create_legacy_secret: bool = False,  # used only in tests
+    ) -> None:
+        secret_name = self._get_kube_secret_name(
+            secret.project_name,
+            secret.org_name,
+            create_legacy_name=create_legacy_secret,
+        )
         try:
             try:
-                await self._kube_client.add_secret_key(
-                    secret_name, secret.key, secret.value
-                )
+                try:
+                    await self._kube_client.add_secret_key(
+                        secret_name, secret.key, secret.value
+                    )
+                except ResourceNotFound:
+                    fallback_secret_name = self._get_kube_secret_name(
+                        secret.project_name, secret.org_name, create_legacy_name=True
+                    )
+                    await self._kube_client.add_secret_key(
+                        fallback_secret_name, secret.key, secret.value
+                    )
             except ResourceNotFound:
                 labels = {}
                 if secret.org_name:
                     labels[SECRET_API_ORG_LABEL] = secret.org_name
-                if secret.project_name == secret.owner:
-                    labels[USER_LABEL] = secret.owner.replace("/", "--")
-                else:
-                    labels[PROJECT_LABEL] = secret.project_name
                 await self._kube_client.create_secret(
                     secret_name, {secret.key: secret.value}, labels=labels
                 )
@@ -79,9 +98,19 @@ class Service:
             raise ValueError(f"Secret key {secret.key!r} or its value not valid")
 
     async def remove_secret(self, secret: Secret) -> None:
-        secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
         try:
-            await self._kube_client.remove_secret_key(secret_name, secret.key)
+            try:
+                secret_name = self._get_kube_secret_name(
+                    secret.project_name, secret.org_name
+                )
+                await self._kube_client.remove_secret_key(secret_name, secret.key)
+            except ResourceNotFound:
+                fallback_secret_name = self._get_kube_secret_name(
+                    secret.project_name, secret.org_name, create_legacy_name=True
+                )
+                await self._kube_client.remove_secret_key(
+                    fallback_secret_name, secret.key
+                )
         except (ResourceNotFound, ResourceInvalid):
             raise SecretNotFound.create(secret.key)
 
@@ -92,44 +121,30 @@ class Service:
         project_name: Optional[str] = None,
     ) -> list[Secret]:
         label_selectors = []
-        if org_name:
+        if org_name and org_name.upper() == NO_ORG:
+            label_selectors += [f"!{SECRET_API_ORG_LABEL}"]
+        elif org_name:
             label_selectors += [f"{SECRET_API_ORG_LABEL}={org_name}"]
-        if project_name:
-            label_selectors += [f"{PROJECT_LABEL}={project_name}"]
         label_selector = ",".join(label_selectors) if label_selectors else None
         payload = await self._kube_client.list_secrets(label_selector)
         result = []
         for item in payload:
             labels = item["metadata"].get("labels", {})
-            owner = None
-            org_name = labels.get(SECRET_API_ORG_LABEL)
-            project_name = labels.get(PROJECT_LABEL)
-            if not project_name:
-                owner = self._get_owner_from_secret_name(
-                    item["metadata"]["name"], org_name
-                )
-                project_name = owner
-            if not project_name:
+            secret_org_name = labels.get(SECRET_API_ORG_LABEL)
+            secret_project_name = self._get_project_name_from_secret_name(
+                item["metadata"]["name"], secret_org_name
+            )
+            if not secret_project_name:
                 continue
-            if with_values:
-                result += [
-                    Secret(
-                        key=key,
-                        value=value,
-                        owner=owner,
-                        project_name=project_name,
-                        org_name=org_name,
-                    )
-                    for key, value in item.get("data", {}).items()
-                ]
-            else:
-                result += [
-                    Secret(
-                        key=key,
-                        owner=owner,
-                        project_name=project_name,
-                        org_name=org_name,
-                    )
-                    for key in item.get("data", {}).keys()
-                ]
+            if project_name and project_name != secret_project_name:
+                continue
+            result += [
+                Secret(
+                    key=key,
+                    value=value if with_values else Secret.value,
+                    project_name=secret_project_name,
+                    org_name=secret_org_name,
+                )
+                for key, value in item.get("data", {}).items()
+            ]
         return result
