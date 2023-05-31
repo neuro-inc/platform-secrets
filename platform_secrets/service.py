@@ -6,6 +6,7 @@ from typing import Optional
 from .kube_client import (
     KubeClient,
     ResourceBadRequest,
+    ResourceConflict,
     ResourceInvalid,
     ResourceNotFound,
 )
@@ -35,18 +36,11 @@ class Service:
     def __init__(self, kube_client: KubeClient) -> None:
         self._kube_client = kube_client
 
-    def _get_kube_secret_name(
-        self,
-        project_name: str,
-        org_name: Optional[str],
-        *,
-        create_legacy_name: bool = False,
-    ) -> str:
+    def _get_kube_secret_name(self, project_name: str, org_name: Optional[str]) -> str:
         path = project_name
         if org_name:
             path = f"{org_name}/{path}"
-        prefix = "user" if create_legacy_name else "project"
-        return f"{prefix}--{path.replace('/', '--')}--secrets"
+        return f"project--{path.replace('/', '--')}--secrets"
 
     def _get_project_name_from_secret_name(
         self, secret_name: str, org_name: Optional[str]
@@ -62,30 +56,13 @@ class Service:
             return username
         return None
 
-    async def add_secret(
-        self,
-        secret: Secret,
-        *,
-        create_legacy_secret: bool = False,  # used only in tests
-    ) -> None:
-        secret_name = self._get_kube_secret_name(
-            secret.project_name,
-            secret.org_name,
-            create_legacy_name=create_legacy_secret,
-        )
+    async def add_secret(self, secret: Secret) -> None:
+        secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
         try:
             try:
-                try:
-                    await self._kube_client.add_secret_key(
-                        secret_name, secret.key, secret.value
-                    )
-                except ResourceNotFound:
-                    fallback_secret_name = self._get_kube_secret_name(
-                        secret.project_name, secret.org_name, create_legacy_name=True
-                    )
-                    await self._kube_client.add_secret_key(
-                        fallback_secret_name, secret.key, secret.value
-                    )
+                await self._kube_client.add_secret_key(
+                    secret_name, secret.key, secret.value
+                )
             except ResourceNotFound:
                 labels = {}
                 if secret.org_name:
@@ -99,18 +76,10 @@ class Service:
 
     async def remove_secret(self, secret: Secret) -> None:
         try:
-            try:
-                secret_name = self._get_kube_secret_name(
-                    secret.project_name, secret.org_name
-                )
-                await self._kube_client.remove_secret_key(secret_name, secret.key)
-            except ResourceNotFound:
-                fallback_secret_name = self._get_kube_secret_name(
-                    secret.project_name, secret.org_name, create_legacy_name=True
-                )
-                await self._kube_client.remove_secret_key(
-                    fallback_secret_name, secret.key
-                )
+            secret_name = self._get_kube_secret_name(
+                secret.project_name, secret.org_name
+            )
+            await self._kube_client.remove_secret_key(secret_name, secret.key)
         except (ResourceNotFound, ResourceInvalid):
             raise SecretNotFound.create(secret.key)
 
@@ -148,3 +117,21 @@ class Service:
                 for key, value in item.get("data", {}).items()
             ]
         return result
+
+    async def migrate_user_to_project_secrets(self) -> None:
+        # TODO: remove migration after deploy to prod
+        user_secrets = [
+            s
+            for s in await self._kube_client.list_secrets()
+            if s["metadata"]["name"].startswith("user--")
+        ]
+
+        for s in user_secrets:
+            new_name = "project--" + s["metadata"]["name"][6:]
+            try:
+                await self._kube_client.create_secret(
+                    new_name, s["data"], s["metadata"].get("labels", {})
+                )
+                logger.info("Migrated user secret to %s", new_name)
+            except ResourceConflict:
+                logger.info("Project secret %s exists", new_name)

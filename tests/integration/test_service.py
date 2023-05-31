@@ -171,41 +171,6 @@ class TestService:
             Secret("testkey3", "test-project"),
         }
 
-    async def test_add_legacy_secret(self, service: Service) -> None:
-        secret1 = Secret(
-            "testkey1",
-            "test-user",
-            base64.b64encode(b"testvalue").decode(),
-        )
-        await service.add_secret(secret1, create_legacy_secret=True)
-        secret2 = Secret(
-            "testkey2",
-            "test-user",
-            base64.b64encode(b"testvalue").decode(),
-        )
-        await service.add_secret(secret2)
-        secret3 = Secret(
-            "testkey3",
-            "test-user",
-            base64.b64encode(b"testvalue").decode(),
-        )
-        await service.add_secret(secret3)
-
-        secrets = await service.get_all_secrets()
-        assert set(secrets) == {
-            Secret("testkey1", "test-user"),
-            Secret("testkey2", "test-user"),
-            Secret("testkey3", "test-user"),
-        }
-
-        await service.remove_secret(secret2)
-
-        secrets = await service.get_all_secrets()
-        assert set(secrets) == {
-            Secret("testkey1", "test-user"),
-            Secret("testkey3", "test-user"),
-        }
-
     async def test_add_remove_add_secret(self, service: Service) -> None:
         secret1 = Secret(
             "testkey1", "test-project", base64.b64encode(b"value").decode()
@@ -224,3 +189,23 @@ class TestService:
     async def test_get_secrets_empty(self, service: Service) -> None:
         secrets = await service.get_all_secrets()
         assert not secrets
+
+    async def test_migrate_user_to_project_secrets(
+        self, service: Service, kube_client: KubeClient
+    ) -> None:
+        await kube_client.create_secret(
+            "user--test-user--secrets",
+            {"secret-key": base64.b64encode(b"secret-value").decode()},
+            {"label-key": "label-value"},
+        )
+
+        await service.migrate_user_to_project_secrets()
+
+        old_secret = await kube_client.get_secret("user--test-user--secrets")
+        new_secret = await kube_client.get_secret("project--test-user--secrets")
+
+        assert old_secret["metadata"]["labels"] == new_secret["metadata"]["labels"]
+        assert old_secret["data"] == new_secret["data"]
+
+        # multiple migrations should not fail
+        await service.migrate_user_to_project_secrets()
