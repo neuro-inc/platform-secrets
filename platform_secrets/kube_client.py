@@ -33,6 +33,10 @@ class ResourceBadRequest(KubeClientException):
     pass
 
 
+class ResourceConflict(KubeClientException):
+    pass
+
+
 class KubeClientUnauthorized(Exception):
     pass
 
@@ -188,6 +192,8 @@ class KubeClient:
                 raise ResourceNotFound(payload)
             if code == 422:
                 raise ResourceInvalid(payload["message"])
+            if code == 409:
+                raise ResourceConflict(payload["message"])
             raise KubeClientException(payload["message"])
 
     async def _reload_http_client(self) -> None:

@@ -319,9 +319,14 @@ async def create_app(config: Config) -> aiohttp.web.Application:
                 )
             )
 
+            service = Service(kube_client)
+
             logger.info("Initializing Service")
-            app["secrets_app"]["service"] = Service(kube_client)
+            app["secrets_app"]["service"] = service
             app["secrets_app"]["auth_client"] = auth_client
+
+            # TODO: remove migration after deploy to prod
+            await service.migrate_user_to_project_secrets()
 
             yield
 
