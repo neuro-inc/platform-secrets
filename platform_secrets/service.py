@@ -45,7 +45,7 @@ class Service:
     def _get_project_name_from_secret_name(
         self, secret_name: str, org_name: Optional[str]
     ) -> Optional[str]:
-        match = re.fullmatch(r"(user|project)--(?P<user_name>.*)--secrets", secret_name)
+        match = re.fullmatch(r"project--(?P<user_name>.*)--secrets", secret_name)
         if match:
             path: str = match.group("user_name").replace("--", "/")
             if org_name:
