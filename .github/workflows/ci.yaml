@@ -86,7 +86,7 @@ jobs:
     name: Create release
     needs: test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    uses: neuro-inc/reuse/.github/workflows/release-service.yaml@v0.0.32
+    uses: neuro-inc/reuse/.github/workflows/release-service.yaml@v24.5.0
     with:
       image: platformsecrets
       helm_charts: platform-secrets
@@ -94,7 +94,7 @@ jobs:
   deploy_dev:
     name: Deploy on dev
     needs: release
-    uses: neuro-inc/reuse/.github/workflows/deploy-dev.yaml@v0.0.32
+    uses: neuro-inc/reuse/.github/workflows/deploy-dev.yaml@v24.5.0
     with:
       helm_charts: platform-secrets
       version: ${{ needs.release.outputs.version }}
