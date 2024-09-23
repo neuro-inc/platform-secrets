@@ -105,5 +105,3 @@ jobs:
         workspace: control-plane-apps-dev-421920
         variables: |
           platform_secrets_version=${{ needs.release.outputs.version }}
-
-
