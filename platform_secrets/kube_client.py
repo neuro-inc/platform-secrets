@@ -5,7 +5,7 @@ import ssl
 from contextlib import suppress
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from urllib.parse import urlsplit
 
 import aiohttp
@@ -89,9 +89,9 @@ class KubeClient:
     def _is_ssl(self) -> bool:
         return urlsplit(self._base_url).scheme == "https"
 
-    def _create_ssl_context(self) -> Optional[ssl.SSLContext]:
+    def _create_ssl_context(self) -> Union[bool, ssl.SSLContext]:
         if not self._is_ssl:
-            return None
+            return True
         ssl_context = ssl.create_default_context(
             cafile=self._cert_authority_path, cadata=self._cert_authority_data_pem
         )
