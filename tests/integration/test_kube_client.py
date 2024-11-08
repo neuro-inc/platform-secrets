@@ -16,6 +16,8 @@ from platform_secrets.kube_client import KubeClient
 
 from .conftest import create_local_app_server
 
+TOKEN_KEY = aiohttp.web.AppKey("token", dict[str, str])
+
 
 class TestKubeClientTokenUpdater:
     @pytest.fixture
@@ -23,11 +25,11 @@ class TestKubeClientTokenUpdater:
         async def _get_secrets(request: aiohttp.web.Request) -> aiohttp.web.Response:
             auth = request.headers["Authorization"]
             token = auth.split()[-1]
-            app["token"]["value"] = token
+            app[TOKEN_KEY]["value"] = token
             return aiohttp.web.json_response({"kind": "SecretList", "items": []})
 
         app = aiohttp.web.Application()
-        app["token"] = {"value": ""}
+        app[TOKEN_KEY] = {"value": ""}
         app.router.add_routes(
             [aiohttp.web.get("/api/v1/namespaces/default/secrets", _get_secrets)]
         )
@@ -69,10 +71,10 @@ class TestKubeClientTokenUpdater:
         kube_token_path: str,
     ) -> None:
         await kube_client.list_secrets()
-        assert kube_app["token"]["value"] == "token-1"
+        assert kube_app[TOKEN_KEY]["value"] == "token-1"
 
         Path(kube_token_path).write_text("token-2")
         await asyncio.sleep(2)
 
         await kube_client.list_secrets()
-        assert kube_app["token"]["value"] == "token-2"
+        assert kube_app[TOKEN_KEY]["value"] == "token-2"

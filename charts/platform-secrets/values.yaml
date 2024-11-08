@@ -30,13 +30,10 @@ ingress:
 service:
   annotations: {}
 
-cors:
-  origins: []
-
 secrets: []
 
-zipkin: {}
-
-sentry: {}
+sentry:
+  appName: platform-secrets
+  sampleRate: 0.01
 
 priorityClassName: ""

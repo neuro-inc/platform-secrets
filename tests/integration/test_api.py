@@ -97,68 +97,6 @@ class TestApi:
         async with client.get(url, headers=headers) as resp:
             assert resp.status == HTTPUnauthorized.status_code
 
-    async def test_ping_unknown_origin(
-        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
-    ) -> None:
-        async with client.get(
-            secrets_api.ping_url, headers={"Origin": "http://unknown"}
-        ) as response:
-            assert response.status == HTTPOk.status_code, await response.text()
-            assert "Access-Control-Allow-Origin" not in response.headers
-
-    async def test_ping_allowed_origin(
-        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
-    ) -> None:
-        async with client.get(
-            secrets_api.ping_url, headers={"Origin": "https://neu.ro"}
-        ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            assert resp.headers["Access-Control-Allow-Origin"] == "https://neu.ro"
-            assert resp.headers["Access-Control-Allow-Credentials"] == "true"
-            # TODO: re-enable this when aiohttp-cors is updated
-            # assert resp.headers["Access-Control-Expose-Headers"] == ""
-
-    async def test_ping_options_no_headers(
-        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
-    ) -> None:
-        async with client.options(secrets_api.ping_url) as resp:
-            assert resp.status == HTTPForbidden.status_code, await resp.text()
-            assert await resp.text() == (
-                "CORS preflight request failed: "
-                "origin header is not specified in the request"
-            )
-
-    async def test_ping_options_unknown_origin(
-        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
-    ) -> None:
-        async with client.options(
-            secrets_api.ping_url,
-            headers={
-                "Origin": "http://unknown",
-                "Access-Control-Request-Method": "GET",
-            },
-        ) as resp:
-            assert resp.status == HTTPForbidden.status_code, await resp.text()
-            assert await resp.text() == (
-                "CORS preflight request failed: "
-                "origin 'http://unknown' is not allowed"
-            )
-
-    async def test_ping_options(
-        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
-    ) -> None:
-        async with client.options(
-            secrets_api.ping_url,
-            headers={
-                "Origin": "https://neu.ro",
-                "Access-Control-Request-Method": "GET",
-            },
-        ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            assert resp.headers["Access-Control-Allow-Origin"] == "https://neu.ro"
-            assert resp.headers["Access-Control-Allow-Credentials"] == "true"
-            assert resp.headers["Access-Control-Allow-Methods"] == "GET"
-
     async def test_get_secrets__unauthorized(
         self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
     ) -> None:
