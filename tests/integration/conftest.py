@@ -11,13 +11,7 @@ import aiohttp
 import aiohttp.web
 import pytest
 
-from platform_secrets.config import (
-    Config,
-    CORSConfig,
-    KubeConfig,
-    PlatformAuthConfig,
-    ServerConfig,
-)
+from platform_secrets.config import Config, KubeConfig, PlatformAuthConfig, ServerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +42,6 @@ def config_factory(
             platform_auth=auth_config,
             kube=kube_config,
             cluster_name=cluster_name,
-            cors=CORSConfig(allowed_origins=["https://neu.ro"]),
         )
         kwargs = {**defaults, **kwargs}
         return Config(**kwargs)

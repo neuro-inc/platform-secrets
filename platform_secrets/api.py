@@ -6,7 +6,6 @@ from typing import Optional
 
 import aiohttp
 import aiohttp.web
-import aiohttp_cors
 from aiohttp.web import (
     HTTPBadRequest,
     HTTPCreated,
@@ -29,17 +28,9 @@ from neuro_auth_client import (
     check_permissions,
 )
 from neuro_auth_client.security import AuthScheme, setup_security
-from neuro_logging import (
-    init_logging,
-    make_sentry_trace_config,
-    make_zipkin_trace_config,
-    notrace,
-    setup_sentry,
-    setup_zipkin,
-    setup_zipkin_tracer,
-)
+from neuro_logging import init_logging, setup_sentry
 
-from .config import Config, CORSConfig, KubeConfig
+from .config import Config, KubeConfig
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
 from .kube_client import KubeClient
@@ -54,6 +45,13 @@ from .validators import (
 logger = logging.getLogger(__name__)
 
 
+CONFIG_KEY = aiohttp.web.AppKey("config", Config)
+API_V1_APP_KEY = aiohttp.web.AppKey("api_v1_app", aiohttp.web.Application)
+SECRETS_APP_KEY = aiohttp.web.AppKey("secrets_app", aiohttp.web.Application)
+AUTH_CLIENT_KEY = aiohttp.web.AppKey("auth_client", AuthClient)
+SERVICE_KEY = aiohttp.web.AppKey("service", Service)
+
+
 class ApiHandler:
     def register(self, app: aiohttp.web.Application) -> list[AbstractRoute]:
         return app.add_routes(
@@ -63,11 +61,9 @@ class ApiHandler:
             ]
         )
 
-    @notrace
     async def handle_ping(self, request: Request) -> Response:
         return Response(text="Pong")
 
-    @notrace
     async def handle_secured_ping(self, request: Request) -> Response:
         await check_authorized(request)
         return Response(text="Secured Pong")
@@ -89,11 +85,11 @@ class SecretsApiHandler:
 
     @property
     def _service(self) -> Service:
-        return self._app["service"]
+        return self._app[SERVICE_KEY]
 
     @property
     def _auth_client(self) -> AuthClient:
-        return self._app["auth_client"]
+        return self._app[AUTH_CLIENT_KEY]
 
     async def _get_untrusted_user(self, request: Request) -> User:
         identity = await untrusted_user(request)
@@ -233,7 +229,7 @@ async def create_secrets_app(config: Config) -> aiohttp.web.Application:
 
 @asynccontextmanager
 async def create_kube_client(
-    config: KubeConfig, trace_configs: list[aiohttp.TraceConfig]
+    config: KubeConfig, trace_configs: Optional[list[aiohttp.TraceConfig]] = None
 ) -> AsyncIterator[KubeClient]:
     client = KubeClient(
         base_url=config.endpoint_url,
@@ -257,22 +253,6 @@ async def create_kube_client(
         await client.close()
 
 
-def _setup_cors(app: aiohttp.web.Application, config: CORSConfig) -> None:
-    if not config.allowed_origins:
-        return
-
-    logger.info(f"Setting up CORS with allowed origins: {config.allowed_origins}")
-    default_options = aiohttp_cors.ResourceOptions(
-        allow_credentials=True, expose_headers="*", allow_headers="*"
-    )
-    cors = aiohttp_cors.setup(
-        app, defaults={origin: default_options for origin in config.allowed_origins}
-    )
-    for route in app.router.routes():
-        logger.debug(f"Setting up CORS for {route}")
-        cors.add(route)
-
-
 package_version = version(__package__)
 
 
@@ -280,31 +260,15 @@ async def add_version_to_header(request: Request, response: StreamResponse) -> N
     response.headers["X-Service-Version"] = f"platform-secrets/{package_version}"
 
 
-def make_tracing_trace_configs(config: Config) -> list[aiohttp.TraceConfig]:
-    trace_configs = []
-
-    if config.zipkin:
-        trace_configs.append(make_zipkin_trace_config())
-
-    if config.sentry:
-        trace_configs.append(make_sentry_trace_config())
-
-    return trace_configs
-
-
 async def create_app(config: Config) -> aiohttp.web.Application:
     app = aiohttp.web.Application(middlewares=[handle_exceptions])
-    app["config"] = config
+    app[CONFIG_KEY] = config
 
     async def _init_app(app: aiohttp.web.Application) -> AsyncIterator[None]:
         async with AsyncExitStack() as exit_stack:
             logger.info("Initializing Auth client")
             auth_client = await exit_stack.enter_async_context(
-                AuthClient(
-                    config.platform_auth.url,
-                    config.platform_auth.token,
-                    make_tracing_trace_configs(config),
-                )
+                AuthClient(config.platform_auth.url, config.platform_auth.token)
             )
 
             await setup_security(
@@ -313,17 +277,14 @@ async def create_app(config: Config) -> aiohttp.web.Application:
 
             logger.info("Initializing Kubernetes client")
             kube_client = await exit_stack.enter_async_context(
-                create_kube_client(
-                    config.kube,
-                    make_tracing_trace_configs(config),
-                )
+                create_kube_client(config.kube)
             )
 
             service = Service(kube_client)
 
             logger.info("Initializing Service")
-            app["secrets_app"]["service"] = service
-            app["secrets_app"]["auth_client"] = auth_client
+            app[SECRETS_APP_KEY][SERVICE_KEY] = service
+            app[SECRETS_APP_KEY][AUTH_CLIENT_KEY] = auth_client
 
             # TODO: remove migration after deploy to prod
             await service.migrate_user_to_project_secrets()
@@ -334,49 +295,25 @@ async def create_app(config: Config) -> aiohttp.web.Application:
 
     api_v1_app = aiohttp.web.Application()
     api_v1_handler = ApiHandler()
-    probes_routes = api_v1_handler.register(api_v1_app)
-    app["api_v1_app"] = api_v1_app
+    api_v1_handler.register(api_v1_app)
+    app[API_V1_APP_KEY] = api_v1_app
 
     secrets_app = await create_secrets_app(config)
-    app["secrets_app"] = secrets_app
+    app[SECRETS_APP_KEY] = secrets_app
     api_v1_app.add_subapp("/secrets", secrets_app)
 
     app.add_subapp("/api/v1", api_v1_app)
 
-    _setup_cors(app, config.cors)
-
     app.on_response_prepare.append(add_version_to_header)
 
-    if config.zipkin:
-        setup_zipkin(app, skip_routes=probes_routes)
-
     return app
-
-
-def setup_tracing(config: Config) -> None:
-    if config.zipkin:
-        setup_zipkin_tracer(
-            config.zipkin.app_name,
-            config.server.host,
-            config.server.port,
-            config.zipkin.url,
-            config.zipkin.sample_rate,
-        )
-
-    if config.sentry:
-        setup_sentry(
-            config.sentry.dsn,
-            app_name=config.sentry.app_name,
-            cluster_name=config.sentry.cluster_name,
-            sample_rate=config.sentry.sample_rate,
-        )
 
 
 def main() -> None:  # pragma: no coverage
     init_logging()
     config = EnvironConfigFactory().create()
     logging.info("Loaded config: %r", config)
-    setup_tracing(config)
+    setup_sentry(health_check_url_path="/api/v1/ping")
     aiohttp.web.run_app(
         create_app(config), host=config.server.host, port=config.server.port
     )
