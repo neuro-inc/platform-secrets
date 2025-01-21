@@ -107,7 +107,7 @@ class KubeClient:
             limit=self._conn_pool_size, ssl=self._create_ssl_context()
         )
         if self._token_path:
-            self._token = Path(self._token_path).read_text()
+            self._token = self._token_from_path()
             self._token_updater_task = asyncio.create_task(self._start_token_updater())
         timeout = aiohttp.ClientTimeout(
             connect=self._conn_timeout_s, total=self._read_timeout_s
@@ -123,7 +123,7 @@ class KubeClient:
             return
         while True:
             try:
-                token = Path(self._token_path).read_text()
+                token = self._token_from_path()
                 if token != self._token:
                     self._token = token
                     logger.info("Kube token was refreshed")
@@ -132,6 +132,9 @@ class KubeClient:
             except Exception as exc:
                 logger.exception("Failed to update kube token: %s", exc)
             await asyncio.sleep(self._token_update_interval_s)
+
+    def _token_from_path(self) -> str:
+        return Path(self._token_path).read_text().strip()
 
     @property
     def namespace(self) -> str:
@@ -210,24 +213,40 @@ class KubeClient:
     async def create_secret(
         self,
         secret_name: str,
-        data: dict[str, str],
+        data: str | dict[str, str],
         labels: dict[str, str],
         *,
         namespace_name: Optional[str] = None,
+        replace_on_conflict: bool = False,
     ) -> None:
         url = self._generate_all_secrets_url(namespace_name)
-        data = data.copy()
-        data[self._dummy_secret_key] = ""
+        if isinstance(data, dict):
+            data_payload = data.copy()
+            data_payload[self._dummy_secret_key] = ""
+        else:
+            data_payload = {secret_name: data}
+
         payload = {
             "apiVersion": "v1",
             "kind": "Secret",
             "metadata": {"name": secret_name, "labels": labels},
-            "data": data,
+            "data": data_payload,
             "type": "Opaque",
         }
         headers = {"Content-Type": "application/json"}
-        req_data = BytesIO(json.dumps(payload).encode())
-        await self._request(method="POST", url=url, headers=headers, data=req_data)
+        req_data = json.dumps(payload).encode()
+        try:
+            await self._request(
+                method="POST", url=url, headers=headers, data=BytesIO(req_data)
+            )
+        except ResourceConflict as e:
+            if not replace_on_conflict:
+                raise e
+            # replace a secret
+            url = f"{url}/{secret_name}"
+            await self._request(
+                method="PUT", url=url, headers=headers, data=BytesIO(req_data)
+            )
 
     async def add_secret_key(
         self,

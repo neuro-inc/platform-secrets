@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -117,6 +118,31 @@ class Service:
                 for key, value in item.get("data", {}).items()
             ]
         return result
+
+    async def unwrap_to_namespace(
+        self, org_name: str, project_name: str, target_namespace: str
+    ) -> None:
+        """
+        Unwraps secrets from a dict and extracts them to a dedicated namespace.
+        """
+        secrets = await self.get_all_secrets(
+            with_values=True,
+            org_name=org_name,
+            project_name=project_name,
+        )
+        tasks = []
+        for secret in secrets:
+            tasks.append(
+                self._kube_client.create_secret(
+                    secret_name=secret.key,
+                    data=secret.value,
+                    labels={},
+                    namespace_name=target_namespace,
+                    replace_on_conflict=True,
+                )
+            )
+
+        await asyncio.gather(*tasks)
 
     async def migrate_user_to_project_secrets(self) -> None:
         # TODO: remove migration after deploy to prod

@@ -40,6 +40,7 @@ from .validators import (
     secret_list_response_validator,
     secret_request_validator,
     secret_response_validator,
+    secret_unwrap_validator,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ class SecretsApiHandler:
                 aiohttp.web.post("", self.handle_post),
                 aiohttp.web.get("", self.handle_get_all),
                 aiohttp.web.delete("/{key}", self.handle_delete),
+                aiohttp.web.post("/unwrap", self.handle_unwrap),
             ]
         )
 
@@ -198,6 +200,28 @@ class SecretsApiHandler:
             resp_payload = {"error": str(exc)}
             return json_response(resp_payload, status=HTTPNotFound.status_code)
         raise HTTPNoContent()
+
+    async def handle_unwrap(self, request: Request) -> Response:
+        payload = await request.json()
+        payload = secret_unwrap_validator.check(payload)
+        user = await self._get_untrusted_user(request)
+
+        org_name = payload["org_name"]
+        project_name = payload["project_name"] or user.name
+
+        await check_permissions(
+            request,
+            [self._get_secrets_write_perm(project_name, org_name)],
+        )
+
+        target_namespace = payload["target_namespace"]
+
+        await self._service.unwrap_to_namespace(
+            org_name=org_name,
+            project_name=project_name,
+            target_namespace=target_namespace,
+        )
+        return Response(status=HTTPCreated.status_code)
 
 
 @middleware

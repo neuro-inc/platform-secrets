@@ -14,7 +14,7 @@ function minikube::start {
 
 function minikube::load_images {
     echo "Loading images to minikube..."
-    make gke_docker_pull_test_images
+    make docker_pull_test_images
 }
 
 function minikube::apply_all_configurations {
