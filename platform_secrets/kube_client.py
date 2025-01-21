@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import ssl
+import typing
 from contextlib import suppress
 from io import BytesIO
 from pathlib import Path
@@ -134,7 +135,8 @@ class KubeClient:
             await asyncio.sleep(self._token_update_interval_s)
 
     def _token_from_path(self) -> str:
-        return Path(self._token_path).read_text().strip()
+        token_path = typing.cast(str, self._token_path)
+        return Path(token_path).read_text().strip()
 
     @property
     def namespace(self) -> str:
@@ -213,7 +215,7 @@ class KubeClient:
     async def create_secret(
         self,
         secret_name: str,
-        data: str | dict[str, str],
+        data: Union[str, dict[str, str]],
         labels: dict[str, str],
         *,
         namespace_name: Optional[str] = None,
