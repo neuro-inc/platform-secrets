@@ -48,5 +48,6 @@ secret_unwrap_validator = t.Dict(
         t.Key("org_name"): t.String(min_length=1, max_length=253) | t.Null(),
         t.Key("project_name"): t.String(min_length=1, max_length=253) | t.Null(),
         t.Key("target_namespace"): t.String(min_length=1, max_length=253),
+        t.Key("secret_names"): t.List(t.String(), min_length=1),
     }
 )

@@ -12,6 +12,7 @@ from aiohttp.web import (
     HTTPInternalServerError,
     HTTPNoContent,
     HTTPNotFound,
+    HTTPUnprocessableEntity,
     Request,
     Response,
     StreamResponse,
@@ -34,7 +35,7 @@ from .config import Config, KubeConfig
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
 from .kube_client import KubeClient
-from .service import Secret, SecretNotFound, Service
+from .service import CopyScopeMissingError, Secret, SecretNotFound, Service
 from .validators import (
     secret_key_validator,
     secret_list_response_validator,
@@ -81,7 +82,7 @@ class SecretsApiHandler:
                 aiohttp.web.post("", self.handle_post),
                 aiohttp.web.get("", self.handle_get_all),
                 aiohttp.web.delete("/{key}", self.handle_delete),
-                aiohttp.web.post("/unwrap", self.handle_unwrap),
+                aiohttp.web.post("/copy", self.handle_copy),
             ]
         )
 
@@ -201,7 +202,7 @@ class SecretsApiHandler:
             return json_response(resp_payload, status=HTTPNotFound.status_code)
         raise HTTPNoContent()
 
-    async def handle_unwrap(self, request: Request) -> Response:
+    async def handle_copy(self, request: Request) -> Response:
         payload = await request.json()
         payload = secret_unwrap_validator.check(payload)
         user = await self._get_untrusted_user(request)
@@ -215,12 +216,21 @@ class SecretsApiHandler:
         )
 
         target_namespace = payload["target_namespace"]
+        secret_names = payload["secret_names"]
 
-        await self._service.unwrap_to_namespace(
-            org_name=org_name,
-            project_name=project_name,
-            target_namespace=target_namespace,
-        )
+        try:
+            await self._service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=target_namespace,
+                secret_names=secret_names,
+            )
+        except CopyScopeMissingError as e:
+            resp_payload = {"error": str(e)}
+            return json_response(
+                resp_payload, status=HTTPUnprocessableEntity.status_code
+            )
+
         return Response(status=HTTPCreated.status_code)
 
 

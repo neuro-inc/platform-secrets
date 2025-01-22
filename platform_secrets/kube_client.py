@@ -163,9 +163,13 @@ class KubeClient:
     def _api_v1_url(self) -> str:
         return f"{self._base_url}/api/v1"
 
+    @property
+    def _namespaces_url(self) -> str:
+        return f"{self._api_v1_url}/namespaces"
+
     def _generate_namespace_url(self, namespace_name: Optional[str] = None) -> str:
         namespace_name = namespace_name or self._namespace
-        return f"{self._api_v1_url}/namespaces/{namespace_name}"
+        return f"{self._namespaces_url}/{namespace_name}"
 
     def _generate_all_secrets_url(self, namespace_name: Optional[str] = None) -> str:
         namespace_url = self._generate_namespace_url(namespace_name)
@@ -235,20 +239,14 @@ class KubeClient:
             "data": data_payload,
             "type": "Opaque",
         }
-        headers = {"Content-Type": "application/json"}
-        req_data = json.dumps(payload).encode()
         try:
-            await self._request(
-                method="POST", url=url, headers=headers, data=BytesIO(req_data)
-            )
+            await self._request(method="POST", url=url, json=payload)
         except ResourceConflict as e:
             if not replace_on_conflict:
                 raise e
             # replace a secret
             url = f"{url}/{secret_name}"
-            await self._request(
-                method="PUT", url=url, headers=headers, data=BytesIO(req_data)
-            )
+            await self._request(method="PUT", url=url, json=payload)
 
     async def add_secret_key(
         self,
@@ -302,3 +300,17 @@ class KubeClient:
         for item in items:
             self._cleanup_secret_payload(item)
         return items
+
+    async def create_namespace(self, name: str) -> None:
+        """Creates a namespace. Ignores conflict errors"""
+        url = URL(self._namespaces_url)
+        payload = {
+            "apiVersion": "v1",
+            "kind": "Namespace",
+            "metadata": {"name": name},
+        }
+        try:
+            await self._request(method="POST", url=url, json=payload)
+        except ResourceConflict:
+            # ignore on conflict
+            return
