@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import ssl
+import typing
 from contextlib import suppress
 from io import BytesIO
 from pathlib import Path
@@ -107,7 +108,7 @@ class KubeClient:
             limit=self._conn_pool_size, ssl=self._create_ssl_context()
         )
         if self._token_path:
-            self._token = Path(self._token_path).read_text()
+            self._token = self._token_from_path()
             self._token_updater_task = asyncio.create_task(self._start_token_updater())
         timeout = aiohttp.ClientTimeout(
             connect=self._conn_timeout_s, total=self._read_timeout_s
@@ -123,7 +124,7 @@ class KubeClient:
             return
         while True:
             try:
-                token = Path(self._token_path).read_text()
+                token = self._token_from_path()
                 if token != self._token:
                     self._token = token
                     logger.info("Kube token was refreshed")
@@ -132,6 +133,10 @@ class KubeClient:
             except Exception as exc:
                 logger.exception("Failed to update kube token: %s", exc)
             await asyncio.sleep(self._token_update_interval_s)
+
+    def _token_from_path(self) -> str:
+        token_path = typing.cast(str, self._token_path)
+        return Path(token_path).read_text().strip()
 
     @property
     def namespace(self) -> str:
@@ -158,9 +163,13 @@ class KubeClient:
     def _api_v1_url(self) -> str:
         return f"{self._base_url}/api/v1"
 
+    @property
+    def _namespaces_url(self) -> str:
+        return f"{self._api_v1_url}/namespaces"
+
     def _generate_namespace_url(self, namespace_name: Optional[str] = None) -> str:
         namespace_name = namespace_name or self._namespace
-        return f"{self._api_v1_url}/namespaces/{namespace_name}"
+        return f"{self._namespaces_url}/{namespace_name}"
 
     def _generate_all_secrets_url(self, namespace_name: Optional[str] = None) -> str:
         namespace_url = self._generate_namespace_url(namespace_name)
@@ -210,24 +219,34 @@ class KubeClient:
     async def create_secret(
         self,
         secret_name: str,
-        data: dict[str, str],
+        data: Union[str, dict[str, str]],
         labels: dict[str, str],
         *,
         namespace_name: Optional[str] = None,
+        replace_on_conflict: bool = False,
     ) -> None:
         url = self._generate_all_secrets_url(namespace_name)
-        data = data.copy()
-        data[self._dummy_secret_key] = ""
+        if isinstance(data, dict):
+            data_payload = data.copy()
+            data_payload[self._dummy_secret_key] = ""
+        else:
+            data_payload = {secret_name: data}
+
         payload = {
             "apiVersion": "v1",
             "kind": "Secret",
             "metadata": {"name": secret_name, "labels": labels},
-            "data": data,
+            "data": data_payload,
             "type": "Opaque",
         }
-        headers = {"Content-Type": "application/json"}
-        req_data = BytesIO(json.dumps(payload).encode())
-        await self._request(method="POST", url=url, headers=headers, data=req_data)
+        try:
+            await self._request(method="POST", url=url, json=payload)
+        except ResourceConflict as e:
+            if not replace_on_conflict:
+                raise e
+            # replace a secret
+            url = f"{url}/{secret_name}"
+            await self._request(method="PUT", url=url, json=payload)
 
     async def add_secret_key(
         self,
@@ -281,3 +300,17 @@ class KubeClient:
         for item in items:
             self._cleanup_secret_payload(item)
         return items
+
+    async def create_namespace(self, name: str) -> None:
+        """Creates a namespace. Ignores conflict errors"""
+        url = URL(self._namespaces_url)
+        payload = {
+            "apiVersion": "v1",
+            "kind": "Namespace",
+            "metadata": {"name": name},
+        }
+        try:
+            await self._request(method="POST", url=url, json=payload)
+        except ResourceConflict:
+            # ignore on conflict
+            return

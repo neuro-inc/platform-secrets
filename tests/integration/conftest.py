@@ -37,12 +37,12 @@ def config_factory(
     auth_config: PlatformAuthConfig, kube_config: KubeConfig, cluster_name: str
 ) -> Callable[..., Config]:
     def _f(**kwargs: Any) -> Config:
-        defaults = dict(
-            server=ServerConfig(host="0.0.0.0", port=8080),
-            platform_auth=auth_config,
-            kube=kube_config,
-            cluster_name=cluster_name,
-        )
+        defaults = {
+            "server": ServerConfig(host="0.0.0.0", port=8080),
+            "platform_auth": auth_config,
+            "kube": kube_config,
+            "cluster_name": cluster_name,
+        }
         kwargs = {**defaults, **kwargs}
         return Config(**kwargs)
 
