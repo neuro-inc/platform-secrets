@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import re
 from dataclasses import dataclass, field
@@ -14,14 +16,21 @@ from .kube_client import (
 logger = logging.getLogger()
 
 SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"
+APPS_SECRET_NAME = "apps-secrets"
 
 NO_ORG = "NO_ORG"
 
 
 class SecretNotFound(Exception):
     @classmethod
-    def create(cls, secret_key: str) -> "SecretNotFound":
+    def create(cls, secret_key: str) -> SecretNotFound:
         return cls(f"Secret {secret_key!r} not found")
+
+
+class CopyScopeMissingError(Exception):
+    @classmethod
+    def create(cls, missing_keys: set[str]) -> CopyScopeMissingError:
+        return cls(f"Missing secrets: {', '.join(missing_keys)}")
 
 
 @dataclass(frozen=True)
@@ -117,6 +126,44 @@ class Service:
                 for key, value in item.get("data", {}).items()
             ]
         return result
+
+    async def copy_to_namespace(
+        self,
+        org_name: str,
+        project_name: str,
+        target_namespace: str,
+        secret_names: list[str],
+    ) -> None:
+        """
+        Unwraps secrets from a dict and extracts them to a dedicated namespace.
+        """
+        secrets = await self.get_all_secrets(
+            with_values=True,
+            org_name=org_name,
+            project_name=project_name,
+        )
+        secrets_scope = set(secret_names)
+
+        missing_secret_names = secrets_scope - {secret.key for secret in secrets}
+        if missing_secret_names:
+            raise CopyScopeMissingError.create(missing_secret_names)
+
+        # ensure namespace is there
+        await self._kube_client.create_namespace(name=target_namespace)
+
+        data = {
+            secret.key: secret.value
+            for secret in secrets
+            if secret.key in secrets_scope
+        }
+
+        await self._kube_client.create_secret(
+            APPS_SECRET_NAME,
+            data=data,
+            labels={},
+            namespace_name=target_namespace,
+            replace_on_conflict=True,
+        )
 
     async def migrate_user_to_project_secrets(self) -> None:
         # TODO: remove migration after deploy to prod
