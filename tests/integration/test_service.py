@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 import base64
+from uuid import uuid4
 
 import pytest
 
 from platform_secrets.kube_client import KubeClient
-from platform_secrets.service import Secret, SecretNotFound, Service
+from platform_secrets.service import (
+    APPS_SECRET_NAME,
+    CopyScopeMissingError,
+    Secret,
+    SecretNotFound,
+    Service,
+)
 
 
 class TestService:
@@ -209,3 +218,136 @@ class TestService:
 
         # multiple migrations should not fail
         await service.migrate_user_to_project_secrets()
+
+    @pytest.fixture
+    def project_name(self) -> str:
+        return "project"
+
+    @pytest.fixture
+    def org_name(self) -> str:
+        return "org"
+
+    @pytest.fixture
+    async def two_secrets(
+        self, project_name: str, org_name: str, service: Service
+    ) -> list[tuple[str, str]]:
+        """Creates two dummy secrets."""
+        first_secret_key, first_secret_value = uuid4().hex, uuid4().hex
+        second_secret_key, second_secret_value = uuid4().hex, uuid4().hex
+
+        for key, value in (
+            (first_secret_key, first_secret_value),
+            (second_secret_key, second_secret_value),
+        ):
+            await service.add_secret(
+                Secret(
+                    key=key,
+                    project_name=project_name,
+                    value=base64.b64encode(value.encode("utf-8")).decode(),
+                    org_name=org_name,
+                )
+            )
+
+        return [
+            (first_secret_key, first_secret_value),
+            (second_secret_key, second_secret_value),
+        ]
+
+    async def test_copy_all_secrets(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        """Ensures that all secrets are copied"""
+        new_namespace_name = uuid4().hex
+        first_secret, second_secret = two_secrets
+        first_secret_key, first_secret_value = first_secret
+        second_secret_key, second_secret_value = second_secret
+
+        await service.copy_to_namespace(
+            org_name=org_name,
+            project_name=project_name,
+            target_namespace=new_namespace_name,
+            secret_names=[first_secret_key, second_secret_key],
+        )
+
+        new_secrets = await kube_client.get_secret(
+            APPS_SECRET_NAME, namespace_name=new_namespace_name
+        )
+        data = new_secrets["data"]
+        assert (
+            base64.b64decode(data[first_secret_key]).decode("utf-8")
+            == first_secret_value
+        )
+        assert (
+            base64.b64decode(data[second_secret_key]).decode("utf-8")
+            == second_secret_value
+        )
+
+    async def test_copy_secrets_subset(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        """
+        Ensures that it is possible to copy only a subset of the secrets
+        """
+        new_namespace_name = uuid4().hex
+        first_secret, second_secret = two_secrets
+        first_secret_key, first_secret_value = first_secret
+        second_secret_key, _ = second_secret
+
+        await service.copy_to_namespace(
+            org_name=org_name,
+            project_name=project_name,
+            target_namespace=new_namespace_name,
+            secret_names=[
+                first_secret_key,
+            ],
+        )
+
+        new_secrets = await kube_client.get_secret(
+            APPS_SECRET_NAME, namespace_name=new_namespace_name
+        )
+        data = new_secrets["data"]
+        assert (
+            base64.b64decode(data[first_secret_key]).decode("utf-8")
+            == first_secret_value
+        )
+        assert second_secret_key not in data  # a second key shouldn't be there
+
+    async def test_copy_secrets__secret_does_not_exist(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        new_namespace_name = uuid4().hex
+        with pytest.raises(CopyScopeMissingError) as e:
+            await service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=new_namespace_name,
+                secret_names=["first-unknown", "second-unknown"],
+            )
+            assert str(e) == f"Missing secrets: first-unknown, second-unknown"
+
+    async def test_create_namespace__conflict_handled(
+        self, kube_client: KubeClient
+    ) -> None:
+        namespace_name = uuid4().hex
+        # let's try to create namespace two times.
+        # we expect no errors to be raised
+        await kube_client.create_namespace(namespace_name)
+        try:
+            await kube_client.create_namespace(namespace_name)
+        except Exception:
+            pytest.fail("creation of namespace must be idempotent")
