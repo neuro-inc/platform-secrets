@@ -180,8 +180,8 @@ class Service:
             # namespace exists. let's check namespace permissions via a labels
             namespace_labels = namespace["metadata"].get("labels", {})
             namespace_org = namespace_labels.get(NAMESPACE_ORG_LABEL)
-            namespace_project_name = namespace_org.get(NAMESPACE_PROJECT_LABEL)
-            if namespace_org != org_name or namespace_project_name != project_name:
+            namespace_project_name = namespace_labels.get(NAMESPACE_PROJECT_LABEL)
+            if (namespace_org != org_name) or (namespace_project_name != project_name):
                 raise NamespaceForbiddenError.create()
 
         data = {
