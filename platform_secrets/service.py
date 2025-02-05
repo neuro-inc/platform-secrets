@@ -164,11 +164,7 @@ class Service:
             raise CopyScopeMissingError.create(missing_secret_names)
 
         try:
-            # let's try to get a namespace
-            namespace = await self._kube_client.get_namespace(name=target_namespace)
-        except ResourceNotFound:
-
-            # no such namespace exists. therefore, we should create it
+            # let's try to create a namespace
             await self._kube_client.create_namespace(
                 name=target_namespace,
                 labels={
@@ -176,8 +172,9 @@ class Service:
                     NAMESPACE_PROJECT_LABEL: project_name,
                 },
             )
-        else:
+        except ResourceConflict:
             # namespace exists. let's check namespace permissions via a labels
+            namespace = await self._kube_client.get_namespace(name=target_namespace)
             namespace_labels = namespace["metadata"].get("labels", {})
             namespace_org = namespace_labels.get(NAMESPACE_ORG_LABEL)
             namespace_project_name = namespace_labels.get(NAMESPACE_PROJECT_LABEL)
