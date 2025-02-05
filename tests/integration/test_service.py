@@ -8,7 +8,10 @@ import pytest
 from platform_secrets.kube_client import KubeClient
 from platform_secrets.service import (
     APPS_SECRET_NAME,
+    NAMESPACE_ORG_LABEL,
+    NAMESPACE_PROJECT_LABEL,
     CopyScopeMissingError,
+    NamespaceForbiddenError,
     Secret,
     SecretNotFound,
     Service,
@@ -340,14 +343,68 @@ class TestService:
             )
             assert str(e) == f"Missing secrets: first-unknown, second-unknown"
 
-    async def test_create_namespace__conflict_handled(
-        self, kube_client: KubeClient
+    async def test_copy_secrets__forbidden_no_labels(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
     ) -> None:
-        namespace_name = uuid4().hex
-        # let's try to create namespace two times.
-        # we expect no errors to be raised
-        await kube_client.create_namespace(namespace_name)
-        try:
-            await kube_client.create_namespace(namespace_name)
-        except Exception:
-            pytest.fail("creation of namespace must be idempotent")
+        """
+        If a namespace exists, and it doesn't contain labels - it should be
+        forbidden to use that namespace
+        """
+        new_namespace_name = uuid4().hex
+
+        # pre-create namespace for some other org
+        await kube_client.create_namespace(name=new_namespace_name, labels={})
+
+        first_secret, _ = two_secrets
+        first_secret_key, _ = first_secret
+
+        with pytest.raises(NamespaceForbiddenError):
+            await service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=new_namespace_name,
+                secret_names=[
+                    first_secret_key,
+                ],
+            )
+
+    async def test_copy_secrets__forbidden_by_other_labels(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        """
+        Ensures that we check namespace permissions.
+        In this test, a namespace contains labels of other org/project
+        """
+        new_namespace_name = uuid4().hex
+
+        # pre-create namespace for some other org
+        await kube_client.create_namespace(
+            name=new_namespace_name,
+            labels={
+                NAMESPACE_ORG_LABEL: "other-org",
+                NAMESPACE_PROJECT_LABEL: "other-proj",
+            },
+        )
+
+        first_secret, _ = two_secrets
+        first_secret_key, _ = first_secret
+
+        with pytest.raises(NamespaceForbiddenError):
+            await service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=new_namespace_name,
+                secret_names=[
+                    first_secret_key,
+                ],
+            )

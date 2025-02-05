@@ -301,16 +301,21 @@ class KubeClient:
             self._cleanup_secret_payload(item)
         return items
 
-    async def create_namespace(self, name: str) -> None:
-        """Creates a namespace. Ignores conflict errors"""
+    async def get_namespace(self, name: str) -> dict[str, Any]:
+        url = URL(f"{self._namespaces_url}/{name}")
+        return await self._request(method="GET", url=url)
+
+    async def create_namespace(
+        self, name: str, labels: dict[str, str]
+    ) -> dict[str, Any]:
+        """Creates a namespace."""
         url = URL(self._namespaces_url)
         payload = {
             "apiVersion": "v1",
             "kind": "Namespace",
-            "metadata": {"name": name},
+            "metadata": {
+                "name": name,
+                "labels": labels,
+            },
         }
-        try:
-            await self._request(method="POST", url=url, json=payload)
-        except ResourceConflict:
-            # ignore on conflict
-            return
+        return await self._request(method="POST", url=url, json=payload)
