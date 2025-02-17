@@ -35,7 +35,12 @@ from .config import Config, KubeConfig
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
 from .kube_client import KubeClient
-from .service import CopyScopeMissingError, Secret, SecretNotFound, Service
+from .service import (
+    PlatformSecretsError,
+    Secret,
+    SecretNotFound,
+    Service,
+)
 from .validators import (
     secret_key_validator,
     secret_list_response_validator,
@@ -225,7 +230,7 @@ class SecretsApiHandler:
                 target_namespace=target_namespace,
                 secret_names=secret_names,
             )
-        except CopyScopeMissingError as e:
+        except PlatformSecretsError as e:
             resp_payload = {"error": str(e)}
             return json_response(
                 resp_payload, status=HTTPUnprocessableEntity.status_code

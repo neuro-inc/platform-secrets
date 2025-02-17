@@ -20,17 +20,32 @@ APPS_SECRET_NAME = "apps-secrets"
 
 NO_ORG = "NO_ORG"
 
+NAMESPACE_ORG_LABEL = "platform.apolo.us/org"
+NAMESPACE_PROJECT_LABEL = "platform.apolo.us/project"
 
-class SecretNotFound(Exception):
+
+class PlatformSecretsError(Exception):
+    """
+    Base service error
+    """
+
+
+class SecretNotFound(PlatformSecretsError):
     @classmethod
     def create(cls, secret_key: str) -> SecretNotFound:
         return cls(f"Secret {secret_key!r} not found")
 
 
-class CopyScopeMissingError(Exception):
+class CopyScopeMissingError(PlatformSecretsError):
     @classmethod
     def create(cls, missing_keys: set[str]) -> CopyScopeMissingError:
         return cls(f"Missing secrets: {', '.join(missing_keys)}")
+
+
+class NamespaceForbiddenError(PlatformSecretsError):
+    @classmethod
+    def create(cls) -> NamespaceForbiddenError:
+        return cls(f"Forbidden")
 
 
 @dataclass(frozen=True)
@@ -148,8 +163,23 @@ class Service:
         if missing_secret_names:
             raise CopyScopeMissingError.create(missing_secret_names)
 
-        # ensure namespace is there
-        await self._kube_client.create_namespace(name=target_namespace)
+        try:
+            # let's try to create a namespace
+            await self._kube_client.create_namespace(
+                name=target_namespace,
+                labels={
+                    NAMESPACE_ORG_LABEL: org_name,
+                    NAMESPACE_PROJECT_LABEL: project_name,
+                },
+            )
+        except ResourceConflict:
+            # namespace exists. let's check namespace permissions via a labels
+            namespace = await self._kube_client.get_namespace(name=target_namespace)
+            namespace_labels = namespace["metadata"].get("labels", {})
+            namespace_org = namespace_labels.get(NAMESPACE_ORG_LABEL)
+            namespace_project_name = namespace_labels.get(NAMESPACE_PROJECT_LABEL)
+            if (namespace_org != org_name) or (namespace_project_name != project_name):
+                raise NamespaceForbiddenError.create()
 
         data = {
             secret.key: secret.value
