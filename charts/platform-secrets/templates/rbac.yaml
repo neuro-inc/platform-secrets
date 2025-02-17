@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "platformSecrets.fullname" . }}-sa
+  annotations:
+    "helm.sh/hook": pre-upgrade, post-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "platformSecrets.fullname" . }}-cr
+rules:
+  # allow namespace creation
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create"]
+
+  # allow all kinds of a secret manipulations
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["*"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "platformSecrets.fullname" . }}-crb
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "platformSecrets.fullname" . }}-sa
+    namespace: platform
+roleRef:
+  kind: ClusterRole
+  name: {{ include "platformSecrets.fullname" . }}-cr
+  apiGroup: rbac.authorization.k8s.io
