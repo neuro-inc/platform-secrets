@@ -15,7 +15,7 @@ rules:
   # allow namespace creation
   - apiGroups: [""]
     resources: ["namespaces"]
-    verbs: ["create"]
+    verbs: ["get", "list", "watch", "create"]
 
   # allow all kinds of a secret manipulations
   - apiGroups: [""]
