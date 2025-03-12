@@ -3,12 +3,11 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from apolo_kube_client.config import KubeClientAuthType, KubeConfig
 from yarl import URL
 
 from .config import (
     Config,
-    KubeClientAuthType,
-    KubeConfig,
     PlatformAuthConfig,
     ServerConfig,
 )
