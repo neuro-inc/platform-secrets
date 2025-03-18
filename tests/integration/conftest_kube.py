@@ -9,7 +9,7 @@ from apolo_kube_client.client import KubeClientAuthType, kube_client_from_config
 
 from platform_secrets.config import KubeConfig
 from platform_secrets.kube_client import KubeApi
-from platform_secrets.service import generate_namespace_name
+from platform_secrets.service import NO_ORG, generate_namespace_name
 
 
 @pytest.fixture
@@ -84,11 +84,17 @@ async def kube_api(
     project_name: str,
 ) -> AsyncIterator[KubeApi]:
     async def _drop_all_secrets(client: KubeApi) -> None:
-        namespace_name = generate_namespace_name(org_name, project_name)
-        for item in await client.list_secrets(namespace_name):
-            secret_name: str = item["metadata"]["name"]
-            if secret_name.startswith("user--") or secret_name.startswith("project--"):
-                await client.remove_secret(secret_name, namespace_name=namespace_name)
+        orgs = [org_name, NO_ORG]
+        for org in orgs:
+            namespace_name = generate_namespace_name(org, project_name)
+            for item in await client.list_secrets(namespace_name):
+                secret_name: str = item["metadata"]["name"]
+                if secret_name.startswith("user--") or secret_name.startswith(
+                    "project--"
+                ):
+                    await client.remove_secret(
+                        secret_name, namespace_name=namespace_name
+                    )
 
     async with kube_client_from_config(config=kube_config) as kube_client:
         kube_api = KubeApi(kube_client=kube_client)
