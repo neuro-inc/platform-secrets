@@ -9,6 +9,7 @@ from neuro_auth_client import AuthClient, Permission, User as AuthClientUser
 from yarl import URL
 
 from platform_secrets.config import PlatformAuthConfig
+from platform_secrets.service import NO_ORG
 from tests.integration.conftest import get_service_url, random_name
 
 
@@ -77,7 +78,7 @@ async def regular_user_factory(
         user = AuthClientUser(name=name)
         await auth_client.add_user(user, token=admin_token)
         if not skip_grant:
-            org_path = f"/{org_name}" if org_name else ""
+            org_path = f"/{org_name or NO_ORG}"
             project_path = f"/{project_name}" if project_name else ""
             name_path = "" if org_level else f"/{name}"
             permissions = [

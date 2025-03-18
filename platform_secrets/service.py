@@ -22,6 +22,7 @@ SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"
 APPS_SECRET_NAME = "apps-secrets"
 
 NO_ORG = "NO_ORG"
+NO_ORG_NORMALIZED = "no-org"
 
 NAMESPACE_ORG_LABEL = "platform.apolo.us/org"
 NAMESPACE_PROJECT_LABEL = "platform.apolo.us/project"
@@ -43,6 +44,9 @@ def generate_namespace_name(org_name: str, project_name: str) -> str:
     - if the names are long, we truncate them evenly,
       so at least some parts of both org and proj names will remain
     """
+    if org_name == NO_ORG:
+        org_name = NO_ORG_NORMALIZED
+
     hashable = f"{org_name}{KUBE_NAMESPACE_SEP}{project_name}"
     name_hash = hashlib.sha256(hashable.encode("utf-8")).hexdigest()[
         :KUBE_NAMESPACE_HASH_LENGTH
@@ -132,20 +136,19 @@ class Service:
     def _get_kube_secret_name(self, project_name: str, org_name: Optional[str]) -> str:
         path = project_name
         if org_name:
+            org_name = NO_ORG_NORMALIZED if org_name == NO_ORG else org_name
             path = f"{org_name}/{path}"
         return f"project--{path.replace('/', '--')}--secrets"
 
     def _get_project_name_from_secret_name(
-        self, secret_name: str, org_name: Optional[str]
+        self, secret_name: str, org_name: str
     ) -> Optional[str]:
         match = re.fullmatch(r"project--(?P<user_name>.*)--secrets", secret_name)
         if match:
             path: str = match.group("user_name").replace("--", "/")
-            if org_name:
-                assert path.startswith(org_name + "/")
-                _, username = path.split("/", 1)
-            else:
-                username = path
+            org_name = NO_ORG_NORMALIZED if org_name == NO_ORG else org_name
+            assert path.startswith(org_name + "/")
+            _, username = path.split("/", 1)
             return username
         return None
 
@@ -191,12 +194,7 @@ class Service:
         project_name: str,
         with_values: bool = False,
     ) -> list[Secret]:
-        label_selectors = []
-        if org_name and org_name.upper() == NO_ORG:
-            label_selectors += [f"!{SECRET_API_ORG_LABEL}"]
-        elif org_name:
-            label_selectors += [f"{SECRET_API_ORG_LABEL}={org_name}"]
-
+        label_selectors = [f"{SECRET_API_ORG_LABEL}={org_name}"]
         await self.get_or_create_namespace(org_name, project_name)
         namespace_name = generate_namespace_name(org_name, project_name)
         label_selector = ",".join(label_selectors) if label_selectors else None
