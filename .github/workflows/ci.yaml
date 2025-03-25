@@ -20,7 +20,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
     - name: Install python
-      uses: actions/setup-python@v5.3.0
+      uses: actions/setup-python@v5.5.0
       with:
         python-version: 3.9
     - name: Cache packages
