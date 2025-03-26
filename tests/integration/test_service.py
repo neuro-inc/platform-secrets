@@ -4,13 +4,15 @@ import base64
 from uuid import uuid4
 
 import pytest
+from apolo_kube_client.apolo import generate_namespace_name
 
 from platform_secrets.kube_client import KubeApi
 from platform_secrets.service import (
+    NO_ORG,
+    NO_ORG_NORMALIZED,
     Secret,
     SecretNotFound,
     Service,
-    generate_namespace_name,
 )
 
 
@@ -270,6 +272,28 @@ class TestService:
             Secret("testkey1", org_name, project_name),
             Secret("testkey3", org_name, project_name),
         }
+
+    async def test_add_secret_no_org(
+        self,
+        service: Service,
+        project_name: str,
+    ) -> None:
+        secret1 = Secret(
+            "testkey1",
+            NO_ORG,
+            project_name,
+            base64.b64encode(b"testvalue").decode(),
+        )
+        await service.add_secret(secret1)
+
+        secrets = await service.get_all_secrets(NO_ORG, project_name)
+        assert len(secrets) == 1
+        actual_secret = secrets[0]
+
+        assert f"{NO_ORG_NORMALIZED}--{project_name}" in actual_secret.namespace_name
+        assert "testkey1" == actual_secret.key
+        assert NO_ORG == actual_secret.org_name
+        assert project_name == actual_secret.project_name
 
     async def test_add_remove_add_secret(
         self,

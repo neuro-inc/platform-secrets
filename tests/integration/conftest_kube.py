@@ -5,11 +5,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pytest
+from apolo_kube_client.apolo import generate_namespace_name
 from apolo_kube_client.client import KubeClientAuthType, kube_client_from_config
 
 from platform_secrets.config import KubeConfig
 from platform_secrets.kube_client import KubeApi
-from platform_secrets.service import NO_ORG, generate_namespace_name
+from platform_secrets.service import NO_ORG
 
 
 @pytest.fixture

@@ -267,6 +267,9 @@ async def create_app(config: Config) -> aiohttp.web.Application:
             app[SECRETS_APP_KEY][SERVICE_KEY] = service
             app[SECRETS_APP_KEY][AUTH_CLIENT_KEY] = auth_client
 
+            # TODO: remove migration after deploy to prod
+            await service.migrate_secrets_to_namespace_approach()
+
             yield
 
     app.cleanup_ctx.append(_init_app)
