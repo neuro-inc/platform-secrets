@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import hashlib
 import logging
-import math
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Optional
 
+from apolo_kube_client.apolo import create_namespace, generate_namespace_name
 from apolo_kube_client.errors import (
     ResourceBadRequest,
-    ResourceExists,
     ResourceInvalid,
     ResourceNotFound,
 )
@@ -23,74 +21,6 @@ APPS_SECRET_NAME = "apps-secrets"
 
 NO_ORG = "NO_ORG"
 NO_ORG_NORMALIZED = "no-org"
-
-NAMESPACE_ORG_LABEL = "platform.apolo.us/org"
-NAMESPACE_PROJECT_LABEL = "platform.apolo.us/project"
-
-KUBE_NAME_LENGTH_MAX = 63
-KUBE_NAMESPACE_SEP = "--"
-KUBE_NAMESPACE_PREFIX = "platform"
-KUBE_NAMESPACE_HASH_LENGTH = 24
-
-
-def generate_namespace_name(org_name: str, project_name: str) -> str:
-    """
-    returns a Kubernetes resource name in the format
-    `platform--<org_name>--<project_name>--<hash>`,
-    ensuring that the total length does not exceed `KUBE_NAME_LENGTH_MAX` characters.
-
-    - `platform--` prefix is never truncated
-    - `<hash>` (a sha256 truncated to 24 chars), is also never truncated
-    - if the names are long, we truncate them evenly,
-      so at least some parts of both org and proj names will remain
-    """
-    if org_name == NO_ORG:
-        org_name = NO_ORG_NORMALIZED
-
-    hashable = f"{org_name}{KUBE_NAMESPACE_SEP}{project_name}"
-    name_hash = hashlib.sha256(hashable.encode("utf-8")).hexdigest()[
-        :KUBE_NAMESPACE_HASH_LENGTH
-    ]
-
-    len_reserved = (
-        len(KUBE_NAMESPACE_PREFIX)
-        + (len(KUBE_NAMESPACE_SEP) * 2)
-        + KUBE_NAMESPACE_HASH_LENGTH
-    )
-    len_free = KUBE_NAME_LENGTH_MAX - len_reserved
-    if len(hashable) <= len_free:
-        return (
-            f"{KUBE_NAMESPACE_PREFIX}"
-            f"{KUBE_NAMESPACE_SEP}"
-            f"{hashable}"
-            f"{KUBE_NAMESPACE_SEP}"
-            f"{name_hash}"
-        )
-
-    # org and project names do not fit into a full length.
-    # let's figure out the full length of org and proj, and calculate a ratio
-    # between org and project, so that we'll truncate more chars from the
-    # string which actually has more chars
-    len_org, len_proj = len(org_name), len(project_name)
-    len_org_proj = len_org + len_proj + len(KUBE_NAMESPACE_SEP)
-    exceeds = len_org_proj - len_free
-
-    # ratio calculation. for proj can be derived via an org ratio
-    remove_from_org = math.ceil((len_org / len_org_proj) * exceeds)
-    remove_from_proj = exceeds - remove_from_org
-
-    new_org_name = org_name[: max(1, len_org - remove_from_org)]
-    new_project_name = project_name[: max(1, len_proj - remove_from_proj)]
-
-    return (
-        f"{KUBE_NAMESPACE_PREFIX}"
-        f"{KUBE_NAMESPACE_SEP}"
-        f"{new_org_name}"
-        f"{KUBE_NAMESPACE_SEP}"
-        f"{new_project_name}"
-        f"{KUBE_NAMESPACE_SEP}"
-        f"{name_hash}"
-    )
 
 
 class PlatformSecretsError(Exception):
@@ -133,16 +63,15 @@ class Service:
     def __init__(self, kube_api: KubeApi) -> None:
         self._kube_api = kube_api
 
-    def _get_kube_secret_name(self, project_name: str, org_name: Optional[str]) -> str:
+    def _get_kube_secret_name(self, project_name: str, org_name: str) -> str:
         path = project_name
-        if org_name:
-            org_name = NO_ORG_NORMALIZED if org_name == NO_ORG else org_name
-            path = f"{org_name}/{path}"
+        org_name = NO_ORG_NORMALIZED if org_name == NO_ORG else org_name
+        path = f"{org_name}/{path}"
         return f"project--{path.replace('/', '--')}--secrets"
 
     def _get_project_name_from_secret_name(
         self, secret_name: str, org_name: str
-    ) -> Optional[str]:
+    ) -> str | None:
         match = re.fullmatch(r"project--(?P<user_name>.*)--secrets", secret_name)
         if match:
             path: str = match.group("user_name").replace("--", "/")
@@ -154,7 +83,9 @@ class Service:
 
     async def add_secret(self, secret: Secret) -> None:
         secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
-        await self.get_or_create_namespace(secret.org_name, secret.project_name)
+        await create_namespace(
+            self._kube_api._kube, secret.org_name, secret.project_name
+        )
         try:
             try:
                 await self._kube_api.add_secret_key(
@@ -164,9 +95,7 @@ class Service:
                     namespace_name=secret.namespace_name,
                 )
             except ResourceNotFound:
-                labels = {}
-                if secret.org_name:
-                    labels[SECRET_API_ORG_LABEL] = secret.org_name
+                labels = {SECRET_API_ORG_LABEL: secret.org_name}
                 await self._kube_api.create_secret(
                     secret_name,
                     {secret.key: secret.value},
@@ -195,16 +124,13 @@ class Service:
         with_values: bool = False,
     ) -> list[Secret]:
         label_selectors = [f"{SECRET_API_ORG_LABEL}={org_name}"]
-        await self.get_or_create_namespace(org_name, project_name)
-        namespace_name = generate_namespace_name(org_name, project_name)
+        namespace = await create_namespace(self._kube_api._kube, org_name, project_name)
         label_selector = ",".join(label_selectors) if label_selectors else None
-        payload = await self._kube_api.list_secrets(namespace_name, label_selector)
+        payload = await self._kube_api.list_secrets(namespace.name, label_selector)
         result = []
         for item in payload:
-            labels = item["metadata"].get("labels", {})
-            secret_org_name = labels.get(SECRET_API_ORG_LABEL)
             secret_project_name = self._get_project_name_from_secret_name(
-                item["metadata"]["name"], secret_org_name
+                item["metadata"]["name"], org_name
             )
             if not secret_project_name:
                 continue
@@ -215,24 +141,54 @@ class Service:
                     key=key,
                     value=value if with_values else Secret.value,
                     project_name=secret_project_name,
-                    org_name=secret_org_name,
+                    org_name=org_name,
                 )
                 for key, value in item.get("data", {}).items()
             ]
         return result
 
-    async def get_or_create_namespace(
-        self, org_name: str, project_name: str
-    ) -> dict[str, Any]:
-        namespace_name = generate_namespace_name(org_name, project_name)
-        try:
-            # let's try to create a namespace
-            return await self._kube_api.create_namespace(
-                name=namespace_name,
-                labels={
-                    NAMESPACE_ORG_LABEL: org_name,
-                    NAMESPACE_PROJECT_LABEL: project_name,
-                },
-            )
-        except ResourceExists:
-            return await self._kube_api.get_namespace(name=namespace_name)
+    # TODO: remove migration after deploy to prod
+    async def migrate_secrets_to_namespace_approach(self) -> None:
+        secrets = await self._kube_api.list_secrets(namespace_name="platform-jobs")
+        secrets_by_org_project = defaultdict(list)
+
+        for secret in secrets:
+            secret_name = secret["metadata"]["name"]
+
+            if not secret_name.startswith("project--"):
+                # not in scope
+                continue
+
+            if not secret["data"]:
+                # doesn't contain any data
+                continue
+
+            # let's parse a name
+            parts = secret_name.split("--")
+            match len(parts):
+                case 3:  # doesn't have an org, so we can default to NO_ORG
+                    org_name = NO_ORG
+                    project_name = parts[1]
+                case 4:
+                    org_name = parts[1]
+                    project_name = parts[2]
+                case _:
+                    logger.error(
+                        "unable to parse a secret name", extra={"name": secret_name}
+                    )
+                    continue
+
+            secrets_by_org_project[(org_name, project_name)].append(secret)
+
+        for (org_name, project_name), secrets in secrets_by_org_project.items():
+            await create_namespace(self._kube_api._kube, org_name, project_name)
+            for secret in secrets:
+                for key, value in secret["data"].items():
+                    await self.add_secret(
+                        Secret(
+                            key=key,
+                            value=value,
+                            org_name=org_name,
+                            project_name=project_name,
+                        )
+                    )
