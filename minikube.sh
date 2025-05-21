@@ -20,7 +20,7 @@ function minikube::load_images {
 function minikube::apply_all_configurations {
     echo "Applying configurations..."
     kubectl config use-context minikube
-    kubectl apply -f tests/k8s/rb.default.gke.yml
+    kubectl apply -f tests/k8s/rbac.yml
     kubectl apply -f tests/k8s/platformapi.yml
 }
 
@@ -28,7 +28,7 @@ function minikube::clean {
     echo "Cleaning up..."
     kubectl config use-context minikube
     kubectl delete -f tests/k8s/platformapi.yml
-    kubectl delete -f tests/k8s/rb.default.gke.yml
+    kubectl delete -f tests/k8s/rbac.yml
 }
 
 function minikube::stop {
