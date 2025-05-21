@@ -165,18 +165,18 @@ class Service:
 
             # let's parse a name
             parts = secret_name.split("--")
-            match len(parts):
-                case 3:  # doesn't have an org, so we can default to NO_ORG
-                    org_name = NO_ORG
-                    project_name = parts[1]
-                case 4:
-                    org_name = parts[1]
-                    project_name = parts[2]
-                case _:
-                    logger.error(
-                        "unable to parse a secret name", extra={"name": secret_name}
-                    )
-                    continue
+            if len(parts) == 3:
+                # doesn't have an org, so we can default to NO_ORG
+                org_name = NO_ORG
+                project_name = parts[1]
+            elif len(parts) == 4:
+                org_name = parts[1]
+                project_name = parts[2]
+            else:
+                logger.error(
+                    "unable to parse a secret name", extra={"name": secret_name}
+                )
+                continue
 
             secrets_by_org_project[(org_name, project_name)].append(secret)
 
