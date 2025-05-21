@@ -118,22 +118,3 @@ class KubeApi:
         for item in items:
             self._cleanup_secret_payload(item)
         return items
-
-    async def get_namespace(self, name: str) -> dict[str, Any]:
-        url = URL(self._kube.generate_namespace_url(namespace_name=name))
-        return await self._kube.request(method="GET", url=url)
-
-    async def create_namespace(
-        self, name: str, labels: dict[str, str]
-    ) -> dict[str, Any]:
-        """Creates a namespace."""
-        url = URL(f"{self._kube.api_v1_url}/namespaces")
-        payload = {
-            "apiVersion": "v1",
-            "kind": "Namespace",
-            "metadata": {
-                "name": name,
-                "labels": labels,
-            },
-        }
-        return await self._kube.request(method="POST", url=url, json=payload)
