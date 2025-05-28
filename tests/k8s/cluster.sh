@@ -1,22 +1,9 @@
 #!/usr/bin/env bash
 
-# based on
-# https://github.com/kubernetes/minikube#linux-continuous-integration-without-vm-support
-
-function k8s::install_kubectl {
-curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
-
-}
 
 function k8s::install_minikube {
-    sudo apt-get update
-    sudo apt-get install -y conntrack
-    curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-    chmod +x minikube
-    sudo mv minikube /usr/local/bin/
-    sudo -E minikube config set WantReportErrorPrompt false
-    sudo -E minikube config set WantNoneDriverWarning false
+    curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+    sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
 }
 
 function k8s::start {
@@ -70,7 +57,6 @@ function k8s::test {
 case "${1:-}" in
     install)
         k8s::install_kubectl
-        k8s::install_minikube
         ;;
     start)
         k8s::start
