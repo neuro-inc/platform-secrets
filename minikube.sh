@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 set -o verbose
 
-export GKE_DOCKER_REGISTRY=gcr.io
-export GKE_PROJECT_ID=light-reality-205619
-
 
 function minikube::start {
     echo "Starting minikube..."
     minikube config set WantUpdateNotification false
-    minikube start --kubernetes-version=v1.14.10
+    minikube start --driver=docker --wait=all --wait-timeout=5m
     kubectl config use-context minikube
-}
-
-function minikube::load_images {
-    echo "Loading images to minikube..."
-    make docker_pull_test_images
 }
 
 function minikube::apply_all_configurations {
     echo "Applying configurations..."
     kubectl config use-context minikube
-    kubectl apply -f tests/k8s/rb.default.gke.yml
+    kubectl create secret docker-registry ghcr \
+        --docker-server ghcr.io \
+        --docker-username x-access-token \
+        --docker-password $GHCR_TOKEN \
+        --docker-email dev@apolo.us \
+        --dry-run=client \
+        --output yaml \
+        | kubectl apply -f -
+    kubectl apply -f tests/k8s/rbac.yml
     kubectl apply -f tests/k8s/platformapi.yml
 }
 
@@ -28,7 +28,7 @@ function minikube::clean {
     echo "Cleaning up..."
     kubectl config use-context minikube
     kubectl delete -f tests/k8s/platformapi.yml
-    kubectl delete -f tests/k8s/rb.default.gke.yml
+    kubectl delete -f tests/k8s/rbac.yml
 }
 
 function minikube::stop {
@@ -65,9 +65,6 @@ function minikube::apply {
 case "${1:-}" in
     start)
         minikube::start
-        ;;
-    load-images)
-        minikube::load_images
         ;;
     apply)
         minikube::apply

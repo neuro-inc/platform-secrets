@@ -43,11 +43,12 @@ spec:
     spec:
       containers:
       - name: platformauthapi
-        image: platformauthapi:latest
-        imagePullPolicy: Never
+        image: ghcr.io/neuro-inc/platformauthapi:latest
         env:
         - name: NP_JWT_SECRET
           value: secret
+      imagePullSecrets:
+      - name: ghcr
 ---
 apiVersion: v1
 kind: Service
