@@ -56,7 +56,7 @@ function k8s::test {
 
 case "${1:-}" in
     install)
-        k8s::install_kubectl
+        k8s::install_minikube
         ;;
     start)
         k8s::start
