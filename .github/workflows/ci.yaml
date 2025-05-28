@@ -54,12 +54,12 @@ jobs:
         make install_k8s
         make start_k8s
     - name: Setup services in minikube
+      env:
+        GHCR_TOKEN: ${{ github.token }}
       run: |
         make apply_configuration_k8s
         make test_k8s
     - name: Run integration tests
-      env:
-        GHCR_TOKEN: ${{ github.token }}
       run: |
         make test_integration
     - name: Upload coverage to Codecov

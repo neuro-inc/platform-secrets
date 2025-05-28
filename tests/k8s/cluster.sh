@@ -24,7 +24,7 @@ function k8s::apply_all_configurations {
         --dry-run=client \
         --output yaml \
         | kubectl apply -f -
-    kubectl apply -f tests/k8s/rb.default.gke.yml
+    kubectl apply -f tests/k8s/rbac.yml
     kubectl apply -f tests/k8s/platformapi.yml
 }
 
