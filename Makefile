@@ -21,11 +21,6 @@ test_unit:
 test_integration:
 	pytest -vv --maxfail=3 --cov=platform_secrets --cov-report xml:.coverage-integration.xml tests/integration
 
-docker_pull_test_images:
-	@eval $$(minikube docker-env); \
-	    docker pull ghcr.io/neuro-inc/platformauthapi:latest; \
-	    docker tag ghcr.io/neuro-inc/platformauthapi:latest platformauthapi:latest
-
 docker_build:
 	rm -rf build dist
 	pip install -U build

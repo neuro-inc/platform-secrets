@@ -4,17 +4,15 @@
 # https://github.com/kubernetes/minikube#linux-continuous-integration-without-vm-support
 
 function k8s::install_kubectl {
-    local kubectl_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-    curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${kubectl_version}/bin/linux/amd64/kubectl
-    chmod +x kubectl
-    sudo mv kubectl /usr/local/bin/
+curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+
 }
 
 function k8s::install_minikube {
-    local minikube_version="v1.25.2"
     sudo apt-get update
     sudo apt-get install -y conntrack
-    curl -Lo minikube https://storage.googleapis.com/minikube/releases/${minikube_version}/minikube-linux-amd64
+    curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
     chmod +x minikube
     sudo mv minikube /usr/local/bin/
     sudo -E minikube config set WantReportErrorPrompt false
@@ -22,17 +20,8 @@ function k8s::install_minikube {
 }
 
 function k8s::start {
-    export KUBECONFIG=$HOME/.kube/config
-    mkdir -p $(dirname $KUBECONFIG)
-    touch $KUBECONFIG
-
-    export MINIKUBE_WANTUPDATENOTIFICATION=false
-    export MINIKUBE_WANTREPORTERRORPROMPT=false
-    export MINIKUBE_HOME=$HOME
-    export CHANGE_MINIKUBE_NONE_USER=true
-
-    sudo -E minikube start \
-        --vm-driver=none \
+    minikube start \
+        --driver=docker \
         --wait=all \
         --wait-timeout=5m
 }
@@ -40,6 +29,14 @@ function k8s::start {
 function k8s::apply_all_configurations {
     echo "Applying configurations..."
     kubectl config use-context minikube
+    kubectl create secret docker-registry ghcr \
+        --docker-server ghcr.io \
+        --docker-username x-access-token \
+        --docker-password $GHCR_TOKEN \
+        --docker-email dev@apolo.us \
+        --dry-run=client \
+        --output yaml \
+        | kubectl apply -f -
     kubectl apply -f tests/k8s/rb.default.gke.yml
     kubectl apply -f tests/k8s/platformapi.yml
 }
