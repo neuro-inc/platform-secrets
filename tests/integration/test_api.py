@@ -17,7 +17,7 @@ from aiohttp.web_exceptions import (
 
 from platform_secrets.api import create_app
 from platform_secrets.config import Config
-from platform_secrets.service import NO_ORG
+from platform_secrets.service import NO_ORG_NORMALIZED
 
 from .conftest import ApiAddress, create_local_app_server, random_name
 from .conftest_auth import _User
@@ -167,7 +167,7 @@ class TestApi:
                 {
                     "key": "kkkk",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 }
             ]
@@ -209,7 +209,7 @@ class TestApi:
                 {
                     "key": "kkkk",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": "test-project",
                 }
             ]
@@ -304,7 +304,7 @@ class TestApi:
             assert resp_payload == {
                 "key": "kkkk",
                 "owner": "test-project",
-                "org_name": NO_ORG,
+                "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
             }
 
@@ -319,7 +319,7 @@ class TestApi:
                 {
                     "key": "kkkk",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 }
             ]
@@ -393,7 +393,7 @@ class TestApi:
             assert resp_payload == {
                 "key": "kkkk",
                 "owner": project_name,
-                "org_name": NO_ORG,
+                "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
             }
 
@@ -408,7 +408,7 @@ class TestApi:
                 {
                     "key": "kkkk",
                     "owner": project_name,
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 }
             ]
@@ -435,7 +435,7 @@ class TestApi:
             assert resp_payload == {
                 "key": "k1",
                 "owner": "test-project",
-                "org_name": NO_ORG,
+                "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
             }
 
@@ -451,7 +451,7 @@ class TestApi:
                 {
                     "key": "k1",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 }
             ]
@@ -465,7 +465,7 @@ class TestApi:
             assert resp_payload == {
                 "key": "k2",
                 "owner": "test-project",
-                "org_name": NO_ORG,
+                "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
             }
 
@@ -481,13 +481,13 @@ class TestApi:
                 {
                     "key": "k1",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 },
                 {
                     "key": "k2",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 },
             ]
@@ -501,7 +501,7 @@ class TestApi:
             assert resp_payload == {
                 "key": "k1",
                 "owner": "test-project",
-                "org_name": NO_ORG,
+                "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
             }
 
@@ -514,7 +514,7 @@ class TestApi:
             assert resp_payload == {
                 "key": "k1",
                 "owner": "test-project",
-                "org_name": NO_ORG,
+                "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
             }
 
@@ -530,13 +530,13 @@ class TestApi:
                 {
                     "key": "k1",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 },
                 {
                     "key": "k2",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 },
             ]
@@ -558,7 +558,7 @@ class TestApi:
                 {
                     "key": "k2",
                     "owner": "test-project",
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 },
             ]
@@ -659,7 +659,7 @@ class TestApi:
             assert resp_payload == {
                 "key": "k1",
                 "owner": project_name,
-                "org_name": NO_ORG,
+                "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
             }
 
@@ -674,7 +674,7 @@ class TestApi:
                 {
                     "key": "k1",
                     "owner": project_name,
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 },
             ]
@@ -690,7 +690,7 @@ class TestApi:
                 {
                     "key": "k1",
                     "owner": project_name,
-                    "org_name": NO_ORG,
+                    "org_name": NO_ORG_NORMALIZED,
                     "project_name": project_name,
                 },
             ]

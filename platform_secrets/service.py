@@ -5,7 +5,12 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from apolo_kube_client.apolo import create_namespace, generate_namespace_name
+from apolo_kube_client.apolo import (
+    NO_ORG,
+    create_namespace,
+    generate_namespace_name,
+    normalize_name,
+)
 from apolo_kube_client.errors import (
     ResourceBadRequest,
     ResourceInvalid,
@@ -19,8 +24,7 @@ logger = logging.getLogger()
 SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"
 APPS_SECRET_NAME = "apps-secrets"
 
-NO_ORG = "NO_ORG"
-NO_ORG_NORMALIZED = "no-org"
+NO_ORG_NORMALIZED = normalize_name(NO_ORG)
 
 
 class PlatformSecretsError(Exception):

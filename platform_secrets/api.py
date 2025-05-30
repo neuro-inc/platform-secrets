@@ -38,6 +38,7 @@ from .identity import untrusted_user
 from .kube_client import KubeApi
 from .service import (
     NO_ORG,
+    NO_ORG_NORMALIZED,
     Secret,
     SecretNotFound,
     Service,
@@ -111,7 +112,7 @@ class SecretsApiHandler:
         return f"{self._secret_cluster_uri}/{org_name}"
 
     def _get_secrets_uri(self, project_name: str, org_name: Optional[str]) -> str:
-        if org_name is None:
+        if org_name is None or org_name == normalize_name(NO_ORG):
             base = self._secret_cluster_uri
         else:
             base = self._get_org_secrets_uri(org_name)
@@ -175,7 +176,9 @@ class SecretsApiHandler:
         tree = await self._auth_client.get_permissions_tree(
             username, self._secret_cluster_uri
         )
-        org_name = org_name or normalize_name(NO_ORG)
+        if not org_name or normalize_name(org_name) == normalize_name(NO_ORG):
+            org_name = NO_ORG_NORMALIZED
+
         secrets = [
             secret
             for secret in await self._service.get_all_secrets(
