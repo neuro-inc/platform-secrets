@@ -5,9 +5,22 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pytest
+from apolo_kube_client.apolo import generate_namespace_name
+from apolo_kube_client.client import KubeClientAuthType, kube_client_from_config
 
 from platform_secrets.config import KubeConfig
-from platform_secrets.kube_client import KubeClient
+from platform_secrets.kube_client import KubeApi
+from platform_secrets.service import NO_ORG
+
+
+@pytest.fixture
+def org_name() -> str:
+    return "test-org"
+
+
+@pytest.fixture
+def project_name() -> str:
+    return "test-project"
 
 
 @pytest.fixture(scope="session")
@@ -60,33 +73,32 @@ async def kube_config(
         auth_cert_path=user["client-certificate"],
         auth_cert_key_path=user["client-key"],
         namespace="default",
+        auth_type=KubeClientAuthType.CERTIFICATE,
     )
     return kube_config
 
 
 @pytest.fixture(autouse=True)
-async def kube_client(kube_config: KubeConfig) -> AsyncIterator[KubeClient]:
-    # TODO (A Danshyn 06/06/18): create a factory method
-    client = KubeClient(
-        base_url=kube_config.endpoint_url,
-        auth_type=kube_config.auth_type,
-        cert_authority_data_pem=kube_config.cert_authority_data_pem,
-        cert_authority_path=None,  # disabled, see `cert_authority_data_pem`
-        auth_cert_path=kube_config.auth_cert_path,
-        auth_cert_key_path=kube_config.auth_cert_key_path,
-        namespace=kube_config.namespace,
-        conn_timeout_s=kube_config.client_conn_timeout_s,
-        read_timeout_s=kube_config.client_read_timeout_s,
-        conn_pool_size=kube_config.client_conn_pool_size,
-    )
+async def kube_api(
+    kube_config: KubeConfig,
+    org_name: str,
+    project_name: str,
+) -> AsyncIterator[KubeApi]:
+    async def _drop_all_secrets(client: KubeApi) -> None:
+        orgs = [org_name, NO_ORG]
+        for org in orgs:
+            namespace_name = generate_namespace_name(org, project_name)
+            for item in await client.list_secrets(namespace_name):
+                secret_name: str = item["metadata"]["name"]
+                if secret_name.startswith("user--") or secret_name.startswith(
+                    "project--"
+                ):
+                    await client.remove_secret(
+                        secret_name, namespace_name=namespace_name
+                    )
 
-    async def _drop_all_secrets(client: KubeClient) -> None:
-        for item in await client.list_secrets():
-            secret_name: str = item["metadata"]["name"]
-            if secret_name.startswith("user--") or secret_name.startswith("project--"):
-                await client.remove_secret(secret_name)
-
-    async with client:
-        await _drop_all_secrets(client)
-        yield client
-        await _drop_all_secrets(client)
+    async with kube_client_from_config(config=kube_config) as kube_client:
+        kube_api = KubeApi(kube_client=kube_client)
+        await _drop_all_secrets(kube_api)
+        yield kube_api
+        await _drop_all_secrets(kube_api)

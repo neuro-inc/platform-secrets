@@ -1,4 +1,5 @@
 import logging
+import os
 import secrets
 import subprocess
 import time
@@ -83,20 +84,24 @@ def get_service_url(service_name: str, namespace: str = "default") -> str:
     timeout_s = 60
     interval_s = 10
 
+    process = subprocess.Popen(
+        ("minikube", "service", "-n", namespace, service_name, "--url"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        preexec_fn=os.setpgrp,
+    )
+    stdout = process.stdout
+    assert stdout
     while timeout_s:
-        process = subprocess.run(
-            ("minikube", "service", "-n", namespace, service_name, "--url"),
-            stdout=subprocess.PIPE,
-        )
-        output = process.stdout
-        if output:
-            url = output.decode().strip()
-            # Sometimes `minikube service ... --url` returns a prefixed
-            # string such as: "* https://127.0.0.1:8081/"
-            start_idx = url.find("http")
-            if start_idx > 0:
-                url = url[start_idx:]
+        output = stdout.readline()
+        url = output.decode().strip()
+        # Sometimes `minikube service ... --url` returns a prefixed
+        # string such as: "* https://127.0.0.1:8081/"
+        start_idx = url.find("http")
+        if start_idx >= 0:
+            url = url[start_idx:]
             return url
+
         time.sleep(interval_s)
         timeout_s -= interval_s
 
