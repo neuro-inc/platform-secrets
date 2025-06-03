@@ -25,29 +25,32 @@ secret_key_validator = (
     t.String(min_length=1, max_length=253) & t.Regexp(SECRET_KEY_PATTERN) >> check_key
 )
 secret_value_validator = t.String(max_length=1024 * 1024) >> check_base64
-secret_request_validator = t.Dict(
+
+org_project_validator = t.Dict(
     {
-        "key": secret_key_validator,
-        "value": secret_value_validator,
         t.Key("org_name", optional=True): t.String(min_length=1, max_length=253)
         | t.Null(),
-        t.Key("project_name", optional=True): t.String(min_length=1, max_length=253),
+        t.Key("project_name"): t.String(min_length=1, max_length=253),
     }
 )
-secret_response_validator = t.Dict(
-    {
-        "key": t.String,
-        "owner": t.String,
-        "org_name": t.String() | t.Null(),
-        "project_name": t.String,
-    }
+secret_request_validator = (
+    t.Dict(
+        {
+            "key": secret_key_validator,
+            "value": secret_value_validator,
+        }
+    )
+    + org_project_validator
 )
+
+secret_response_validator = (
+    t.Dict(
+        {
+            "key": t.String,
+            "owner": t.String,
+        }
+    )
+    + org_project_validator
+)
+
 secret_list_response_validator = t.List(secret_response_validator)
-secret_unwrap_validator = t.Dict(
-    {
-        t.Key("org_name"): t.String(min_length=1, max_length=253) | t.Null(),
-        t.Key("project_name"): t.String(min_length=1, max_length=253) | t.Null(),
-        t.Key("target_namespace"): t.String(min_length=1, max_length=253),
-        t.Key("secret_names"): t.List(t.String(), min_length=1),
-    }
-)
