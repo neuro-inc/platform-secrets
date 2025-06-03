@@ -1,6 +1,6 @@
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 from importlib.metadata import version
 from typing import Optional
 
@@ -12,6 +12,7 @@ from aiohttp.web import (
     HTTPInternalServerError,
     HTTPNoContent,
     HTTPNotFound,
+    HTTPUnprocessableEntity,
     Request,
     Response,
     StreamResponse,
@@ -20,8 +21,6 @@ from aiohttp.web import (
 )
 from aiohttp.web_urldispatcher import AbstractRoute
 from aiohttp_security import check_authorized
-from apolo_kube_client.apolo import normalize_name
-from apolo_kube_client.client import kube_client_from_config
 from neuro_auth_client import (
     AuthClient,
     ClientSubTreeViewRoot,
@@ -32,23 +31,22 @@ from neuro_auth_client import (
 from neuro_auth_client.security import AuthScheme, setup_security
 from neuro_logging import init_logging, setup_sentry
 
-from .config import Config
+from .config import Config, KubeConfig
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
-from .kube_client import KubeApi
+from .kube_client import KubeClient
 from .service import (
-    NO_ORG,
-    NO_ORG_NORMALIZED,
+    PlatformSecretsError,
     Secret,
     SecretNotFound,
     Service,
 )
 from .validators import (
-    org_project_validator,
     secret_key_validator,
     secret_list_response_validator,
     secret_request_validator,
     secret_response_validator,
+    secret_unwrap_validator,
 )
 
 logger = logging.getLogger(__name__)
@@ -89,6 +87,7 @@ class SecretsApiHandler:
                 aiohttp.web.post("", self.handle_post),
                 aiohttp.web.get("", self.handle_get_all),
                 aiohttp.web.delete("/{key}", self.handle_delete),
+                aiohttp.web.post("/copy", self.handle_copy),
             ]
         )
 
@@ -112,7 +111,7 @@ class SecretsApiHandler:
         return f"{self._secret_cluster_uri}/{org_name}"
 
     def _get_secrets_uri(self, project_name: str, org_name: Optional[str]) -> str:
-        if org_name is None or org_name == normalize_name(NO_ORG):
+        if org_name is None:
             base = self._secret_cluster_uri
         else:
             base = self._get_org_secrets_uri(org_name)
@@ -148,15 +147,15 @@ class SecretsApiHandler:
         return tree.allows(self._get_secret_read_perm(secret))
 
     async def handle_post(self, request: Request) -> Response:
+        user = await self._get_untrusted_user(request)
         payload = await request.json()
         payload = secret_request_validator.check(payload)
         org_name = payload.get("org_name")
-        project_name = payload["project_name"]
+        project_name = payload.get("project_name", user.name)
         await check_permissions(
             request,
             [self._get_secrets_write_perm(project_name, org_name)],
         )
-        org_name = org_name or normalize_name(NO_ORG)
         secret = Secret(
             key=payload["key"],
             value=payload["value"],
@@ -170,15 +169,11 @@ class SecretsApiHandler:
 
     async def handle_get_all(self, request: Request) -> Response:
         username = await check_authorized(request)
-        payload = org_project_validator.check(request.query)
-        org_name = payload.get("org_name")
-        project_name = payload["project_name"]
+        org_name = request.query.get("org_name")
+        project_name = request.query.get("project_name")
         tree = await self._auth_client.get_permissions_tree(
             username, self._secret_cluster_uri
         )
-        if not org_name or normalize_name(org_name) == normalize_name(NO_ORG):
-            org_name = NO_ORG_NORMALIZED
-
         secrets = [
             secret
             for secret in await self._service.get_all_secrets(
@@ -191,14 +186,13 @@ class SecretsApiHandler:
         return json_response(resp_payload)
 
     async def handle_delete(self, request: Request) -> Response:
-        payload = org_project_validator.check(request.query)
-        org_name = payload.get("org_name")
-        project_name = payload["project_name"]
+        user = await self._get_untrusted_user(request)
+        org_name = request.query.get("org_name")
+        project_name = request.query.get("project_name") or user.name
         await check_permissions(
             request,
             [self._get_secrets_write_perm(project_name, org_name)],
         )
-        org_name = org_name or normalize_name(NO_ORG)
         secret_key = request.match_info["key"]
         secret_key = secret_key_validator.check(secret_key)
         secret = Secret(
@@ -212,6 +206,37 @@ class SecretsApiHandler:
             resp_payload = {"error": str(exc)}
             return json_response(resp_payload, status=HTTPNotFound.status_code)
         raise HTTPNoContent()
+
+    async def handle_copy(self, request: Request) -> Response:
+        payload = await request.json()
+        payload = secret_unwrap_validator.check(payload)
+        user = await self._get_untrusted_user(request)
+
+        org_name = payload["org_name"]
+        project_name = payload["project_name"] or user.name
+
+        await check_permissions(
+            request,
+            [self._get_secrets_write_perm(project_name, org_name)],
+        )
+
+        target_namespace = payload["target_namespace"]
+        secret_names = payload["secret_names"]
+
+        try:
+            await self._service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=target_namespace,
+                secret_names=secret_names,
+            )
+        except PlatformSecretsError as e:
+            resp_payload = {"error": str(e)}
+            return json_response(
+                resp_payload, status=HTTPUnprocessableEntity.status_code
+            )
+
+        return Response(status=HTTPCreated.status_code)
 
 
 @middleware
@@ -241,6 +266,32 @@ async def create_secrets_app(config: Config) -> aiohttp.web.Application:
     return app
 
 
+@asynccontextmanager
+async def create_kube_client(
+    config: KubeConfig, trace_configs: Optional[list[aiohttp.TraceConfig]] = None
+) -> AsyncIterator[KubeClient]:
+    client = KubeClient(
+        base_url=config.endpoint_url,
+        namespace=config.namespace,
+        cert_authority_path=config.cert_authority_path,
+        cert_authority_data_pem=config.cert_authority_data_pem,
+        auth_type=config.auth_type,
+        auth_cert_path=config.auth_cert_path,
+        auth_cert_key_path=config.auth_cert_key_path,
+        token=config.token,
+        token_path=config.token_path,
+        conn_timeout_s=config.client_conn_timeout_s,
+        read_timeout_s=config.client_read_timeout_s,
+        conn_pool_size=config.client_conn_pool_size,
+        trace_configs=trace_configs,
+    )
+    try:
+        await client.init()
+        yield client
+    finally:
+        await client.close()
+
+
 package_version = version(__package__)
 
 
@@ -265,17 +316,17 @@ async def create_app(config: Config) -> aiohttp.web.Application:
 
             logger.info("Initializing Kubernetes client")
             kube_client = await exit_stack.enter_async_context(
-                kube_client_from_config(config.kube),
+                create_kube_client(config.kube)
             )
-            kube_api = KubeApi(kube_client=kube_client)
-            service = Service(kube_api)
+
+            service = Service(kube_client)
 
             logger.info("Initializing Service")
             app[SECRETS_APP_KEY][SERVICE_KEY] = service
             app[SECRETS_APP_KEY][AUTH_CLIENT_KEY] = auth_client
 
             # TODO: remove migration after deploy to prod
-            await service.migrate_secrets_to_namespace_approach()
+            await service.migrate_user_to_project_secrets()
 
             yield
 
