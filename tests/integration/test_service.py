@@ -4,12 +4,14 @@ import base64
 from uuid import uuid4
 
 import pytest
-from apolo_kube_client.apolo import generate_namespace_name
 
-from platform_secrets.kube_client import KubeApi
+from platform_secrets.kube_client import KubeClient
 from platform_secrets.service import (
-    NO_ORG,
-    NO_ORG_NORMALIZED,
+    APPS_SECRET_NAME,
+    NAMESPACE_ORG_LABEL,
+    NAMESPACE_PROJECT_LABEL,
+    CopyScopeMissingError,
+    NamespaceForbiddenError,
     Secret,
     SecretNotFound,
     Service,
@@ -18,133 +20,74 @@ from platform_secrets.service import (
 
 class TestService:
     @pytest.fixture
-    def service(self, kube_api: KubeApi) -> Service:
-        return Service(kube_api=kube_api)
+    def service(self, kube_client: KubeClient) -> Service:
+        return Service(kube_client=kube_client)
 
     @pytest.mark.parametrize("key", ["!@#", ".", "..", "...", " ", "\n", "\t", ""])
-    async def test_add_secret_invalid_key(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-        key: str,
-    ) -> None:
-        secret = Secret(
-            key, org_name, project_name, base64.b64encode(b"testvalue").decode()
-        )
+    async def test_add_secret_invalid_key(self, service: Service, key: str) -> None:
+        secret = Secret(key, "test-project", base64.b64encode(b"testvalue").decode())
         with pytest.raises(ValueError, match="Secret key '.*' or its value not valid"):
             await service.add_secret(secret)
 
     @pytest.mark.parametrize("key", ["-", "_", ".-", "0"])
-    async def test_add_secret_valid_key(
-        self,
-        service: Service,
-        kube_api: KubeApi,
-        org_name: str,
-        project_name: str,
-        key: str,
-    ) -> None:
-        # ensure that currently the expected namespace doesn't have any secrets
-        namespace_name = generate_namespace_name(org_name, project_name)
-        namespace_secrets = await kube_api.list_secrets(namespace_name)
-        assert len(namespace_secrets) == 0
-
-        secret = Secret(
-            key, org_name, project_name, base64.b64encode(b"testvalue").decode()
-        )
+    async def test_add_secret_valid_key(self, service: Service, key: str) -> None:
+        secret = Secret(key, "test-project", base64.b64encode(b"testvalue").decode())
         await service.add_secret(secret)
-
-        # ensure that secrets were created in a proper namespace
-        namespace_secrets = await kube_api.list_secrets(namespace_name)
-        assert len(namespace_secrets) == 1
-        expected_secret_name = (
-            f"project--{secret.org_name}--{secret.project_name}--secrets"
-        )
-        assert namespace_secrets[0]["metadata"]["name"] == expected_secret_name
 
     @pytest.mark.parametrize("key", ["-", "_", ".-", "0"])
-    async def test_with_org(
-        self,
-        service: Service,
-        key: str,
-        org_name: str,
-        project_name: str,
-    ) -> None:
+    async def test_with_org(self, service: Service, key: str) -> None:
         secret = Secret(
             key,
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
+            org_name="test",
         )
         await service.add_secret(secret)
-        assert set(
-            await service.get_all_secrets(org_name, project_name, with_values=True)
-        ) == {secret}
+        assert set(await service.get_all_secrets(with_values=True)) == {secret}
 
-    async def test_add_secret_invalid_value(
-        self, service: Service, org_name: str, project_name: str
-    ) -> None:
-        secret = Secret("testkey", org_name, project_name, "testvalue")
+    async def test_add_secret_invalid_value(self, service: Service) -> None:
+        secret = Secret("testkey", "test-project", "testvalue")
         with pytest.raises(
             ValueError, match="Secret key 'testkey' or its value not valid"
         ):
             await service.add_secret(secret)
 
-    async def test_remove_secret_not_found(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
+    async def test_remove_secret_not_found(self, service: Service) -> None:
         secret = Secret(
             "testkey",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
         )
         with pytest.raises(SecretNotFound, match="Secret 'testkey' not found"):
             await service.remove_secret(secret)
 
-    async def test_remove_secret_only_key(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
+    async def test_remove_secret_only_key(self, service: Service) -> None:
         secret = Secret(
             "testkey",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret)
 
-        secrets = await service.get_all_secrets(org_name, project_name)
-        assert set(secrets) == {Secret("testkey", org_name, project_name)}
+        secrets = await service.get_all_secrets()
+        assert set(secrets) == {Secret("testkey", "test-project")}
 
         await service.remove_secret(secret)
 
-        secrets = await service.get_all_secrets(org_name, project_name)
+        secrets = await service.get_all_secrets()
         assert not secrets
 
-    async def test_add_secret_max_key(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
+    async def test_add_secret_max_key(self, service: Service) -> None:
         secret = Secret(
             "a" * 253,
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue1").decode(),
         )
         await service.add_secret(secret)
 
         secret = Secret(
             "a" * 254,
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue1").decode(),
         )
         with pytest.raises(
@@ -152,24 +95,17 @@ class TestService:
         ):
             await service.add_secret(secret)
 
-    async def test_add_secret_max_value(
-        self,
-        org_name: str,
-        project_name: str,
-        service: Service,
-    ) -> None:
+    async def test_add_secret_max_value(self, service: Service) -> None:
         secret = Secret(
             "a" * 253,
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"v" * 1 * 1024 * 1024).decode(),
         )
         await service.add_secret(secret)
 
         secret = Secret(
             "a" * 253,
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"v" * (1 * 1024 * 1024 + 1)).decode(),
         )
         with pytest.raises(
@@ -177,152 +113,122 @@ class TestService:
         ):
             await service.add_secret(secret)
 
-    async def test_add_secret_replace(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
+    async def test_add_secret_replace(self, service: Service) -> None:
         secret = Secret(
             "testkey",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue1").decode(),
         )
         await service.add_secret(secret)
-        secrets = await service.get_all_secrets(
-            org_name, project_name, with_values=True
-        )
+        secrets = await service.get_all_secrets(with_values=True)
         assert set(secrets) == {secret}
 
         secret = Secret(
             "testkey",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue2").decode(),
         )
         await service.add_secret(secret)
-        secrets = await service.get_all_secrets(
-            org_name, project_name, with_values=True
-        )
+        secrets = await service.get_all_secrets(with_values=True)
         assert set(secrets) == {secret}
 
-    async def test_remove_secret_key_not_found(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
+    async def test_remove_secret_key_not_found(self, service: Service) -> None:
         secret1 = Secret(
             "testkey1",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret1)
         secret2 = Secret(
             "testkey2",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
         )
         with pytest.raises(SecretNotFound, match="Secret 'testkey2' not found"):
             await service.remove_secret(secret2)
 
-    async def test_add_secret(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
+    async def test_add_secret(self, service: Service) -> None:
         secret1 = Secret(
             "testkey1",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret1)
         secret2 = Secret(
             "testkey2",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret2)
 
         secret3 = Secret(
             "testkey3",
-            org_name,
-            project_name,
+            "test-project",
             base64.b64encode(b"testvalue").decode(),
         )
         await service.add_secret(secret3)
 
-        secrets = await service.get_all_secrets(org_name, project_name)
+        secrets = await service.get_all_secrets()
         assert set(secrets) == {
-            Secret("testkey1", org_name, project_name),
-            Secret("testkey2", org_name, project_name),
-            Secret("testkey3", org_name, project_name),
+            Secret("testkey1", "test-project"),
+            Secret("testkey2", "test-project"),
+            Secret("testkey3", "test-project"),
         }
 
         await service.remove_secret(secret2)
 
-        secrets = await service.get_all_secrets(org_name, project_name)
+        secrets = await service.get_all_secrets()
         assert set(secrets) == {
-            Secret("testkey1", org_name, project_name),
-            Secret("testkey3", org_name, project_name),
+            Secret("testkey1", "test-project"),
+            Secret("testkey3", "test-project"),
         }
 
-    async def test_add_secret_no_org(
-        self,
-        service: Service,
-        project_name: str,
-    ) -> None:
+    async def test_add_remove_add_secret(self, service: Service) -> None:
         secret1 = Secret(
-            "testkey1",
-            NO_ORG,
-            project_name,
-            base64.b64encode(b"testvalue").decode(),
-        )
-        await service.add_secret(secret1)
-
-        secrets = await service.get_all_secrets(NO_ORG, project_name)
-        assert len(secrets) == 1
-        actual_secret = secrets[0]
-
-        assert f"{NO_ORG_NORMALIZED}--{project_name}" in actual_secret.namespace_name
-        assert "testkey1" == actual_secret.key
-        assert NO_ORG == actual_secret.org_name
-        assert project_name == actual_secret.project_name
-
-    async def test_add_remove_add_secret(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
-        secret1 = Secret(
-            "testkey1", org_name, project_name, base64.b64encode(b"value").decode()
+            "testkey1", "test-project", base64.b64encode(b"value").decode()
         )
         await service.add_secret(secret1)
 
         await service.remove_secret(secret1)
 
-        secrets = await service.get_all_secrets(org_name, project_name)
+        secrets = await service.get_all_secrets()
         assert set(secrets) == set()
 
         await service.add_secret(secret1)
-        secrets = await service.get_all_secrets(org_name, project_name)
-        assert set(secrets) == {Secret("testkey1", org_name, project_name)}
+        secrets = await service.get_all_secrets()
+        assert set(secrets) == {Secret("testkey1", "test-project")}
 
-    async def test_get_secrets_empty(
-        self,
-        service: Service,
-        org_name: str,
-        project_name: str,
-    ) -> None:
-        secrets = await service.get_all_secrets(org_name, project_name)
+    async def test_get_secrets_empty(self, service: Service) -> None:
+        secrets = await service.get_all_secrets()
         assert not secrets
+
+    async def test_migrate_user_to_project_secrets(
+        self, service: Service, kube_client: KubeClient
+    ) -> None:
+        await kube_client.create_secret(
+            "user--test-user--secrets",
+            {"secret-key": base64.b64encode(b"secret-value").decode()},
+            {"label-key": "label-value"},
+        )
+
+        await service.migrate_user_to_project_secrets()
+
+        old_secret = await kube_client.get_secret("user--test-user--secrets")
+        new_secret = await kube_client.get_secret("project--test-user--secrets")
+
+        assert old_secret["metadata"]["labels"] == new_secret["metadata"]["labels"]
+        assert old_secret["data"] == new_secret["data"]
+
+        # multiple migrations should not fail
+        await service.migrate_user_to_project_secrets()
+
+    @pytest.fixture
+    def project_name(self) -> str:
+        return "project"
+
+    @pytest.fixture
+    def org_name(self) -> str:
+        return "org"
 
     @pytest.fixture
     async def two_secrets(
@@ -339,9 +245,9 @@ class TestService:
             await service.add_secret(
                 Secret(
                     key=key,
-                    org_name=org_name,
                     project_name=project_name,
                     value=base64.b64encode(value.encode("utf-8")).decode(),
+                    org_name=org_name,
                 )
             )
 
@@ -349,3 +255,156 @@ class TestService:
             (first_secret_key, first_secret_value),
             (second_secret_key, second_secret_value),
         ]
+
+    async def test_copy_all_secrets(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        """Ensures that all secrets are copied"""
+        new_namespace_name = uuid4().hex
+        first_secret, second_secret = two_secrets
+        first_secret_key, first_secret_value = first_secret
+        second_secret_key, second_secret_value = second_secret
+
+        await service.copy_to_namespace(
+            org_name=org_name,
+            project_name=project_name,
+            target_namespace=new_namespace_name,
+            secret_names=[first_secret_key, second_secret_key],
+        )
+
+        new_secrets = await kube_client.get_secret(
+            APPS_SECRET_NAME, namespace_name=new_namespace_name
+        )
+        data = new_secrets["data"]
+        assert (
+            base64.b64decode(data[first_secret_key]).decode("utf-8")
+            == first_secret_value
+        )
+        assert (
+            base64.b64decode(data[second_secret_key]).decode("utf-8")
+            == second_secret_value
+        )
+
+    async def test_copy_secrets_subset(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        """
+        Ensures that it is possible to copy only a subset of the secrets
+        """
+        new_namespace_name = uuid4().hex
+        first_secret, second_secret = two_secrets
+        first_secret_key, first_secret_value = first_secret
+        second_secret_key, _ = second_secret
+
+        await service.copy_to_namespace(
+            org_name=org_name,
+            project_name=project_name,
+            target_namespace=new_namespace_name,
+            secret_names=[
+                first_secret_key,
+            ],
+        )
+
+        new_secrets = await kube_client.get_secret(
+            APPS_SECRET_NAME, namespace_name=new_namespace_name
+        )
+        data = new_secrets["data"]
+        assert (
+            base64.b64decode(data[first_secret_key]).decode("utf-8")
+            == first_secret_value
+        )
+        assert second_secret_key not in data  # a second key shouldn't be there
+
+    async def test_copy_secrets__secret_does_not_exist(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        new_namespace_name = uuid4().hex
+        with pytest.raises(CopyScopeMissingError) as e:
+            await service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=new_namespace_name,
+                secret_names=["first-unknown", "second-unknown"],
+            )
+            assert str(e) == f"Missing secrets: first-unknown, second-unknown"
+
+    async def test_copy_secrets__forbidden_no_labels(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        """
+        If a namespace exists, and it doesn't contain labels - it should be
+        forbidden to use that namespace
+        """
+        new_namespace_name = uuid4().hex
+
+        # pre-create namespace for some other org
+        await kube_client.create_namespace(name=new_namespace_name, labels={})
+
+        first_secret, _ = two_secrets
+        first_secret_key, _ = first_secret
+
+        with pytest.raises(NamespaceForbiddenError):
+            await service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=new_namespace_name,
+                secret_names=[
+                    first_secret_key,
+                ],
+            )
+
+    async def test_copy_secrets__forbidden_by_other_labels(
+        self,
+        service: Service,
+        kube_client: KubeClient,
+        org_name: str,
+        project_name: str,
+        two_secrets: list[tuple[str, str]],
+    ) -> None:
+        """
+        Ensures that we check namespace permissions.
+        In this test, a namespace contains labels of other org/project
+        """
+        new_namespace_name = uuid4().hex
+
+        # pre-create namespace for some other org
+        await kube_client.create_namespace(
+            name=new_namespace_name,
+            labels={
+                NAMESPACE_ORG_LABEL: "other-org",
+                NAMESPACE_PROJECT_LABEL: "other-proj",
+            },
+        )
+
+        first_secret, _ = two_secrets
+        first_secret_key, _ = first_secret
+
+        with pytest.raises(NamespaceForbiddenError):
+            await service.copy_to_namespace(
+                org_name=org_name,
+                project_name=project_name,
+                target_namespace=new_namespace_name,
+                secret_names=[
+                    first_secret_key,
+                ],
+            )
