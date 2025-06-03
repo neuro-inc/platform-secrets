@@ -2,11 +2,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from apolo_kube_client.config import KubeClientAuthType
 from yarl import URL
 
 from platform_secrets.config import (
     Config,
-    KubeClientAuthType,
     KubeConfig,
     PlatformAuthConfig,
     ServerConfig,
@@ -43,7 +43,7 @@ def test_create_default() -> None:
         platform_auth=PlatformAuthConfig(url=None, token="platform-auth-token"),
         kube=KubeConfig(
             endpoint_url="https://localhost:8443",
-            auth_type=KubeClientAuthType.CERTIFICATE,
+            auth_type=KubeClientAuthType.NONE,
         ),
         cluster_name="",
     )
