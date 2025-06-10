@@ -31,7 +31,7 @@ test_unit:
 test_integration:
 	poetry run pytest -vv --maxfail=3 --cov-config=pyproject.toml --cov-report xml:.coverage-integration.xml tests/integration
 
-MAGE_NAME = platformsecrets
+IMAGE_NAME = platformsecrets
 
 .PHONY: docker_build
 docker_build: dist
