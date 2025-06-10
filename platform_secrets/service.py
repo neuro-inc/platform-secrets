@@ -48,7 +48,7 @@ class CopyScopeMissingError(PlatformSecretsError):
 class NamespaceForbiddenError(PlatformSecretsError):
     @classmethod
     def create(cls) -> NamespaceForbiddenError:
-        return cls(f"Forbidden")
+        return cls("Forbidden")
 
 
 @dataclass(frozen=True)

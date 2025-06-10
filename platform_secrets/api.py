@@ -1,7 +1,6 @@
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack
-from importlib.metadata import version
 from typing import Optional
 
 import aiohttp
@@ -31,6 +30,7 @@ from neuro_auth_client import (
 )
 from neuro_auth_client.security import AuthScheme, setup_security
 from neuro_logging import init_logging, setup_sentry
+from platform_secrets import __version__
 
 from .config import Config
 from .config_factory import EnvironConfigFactory
@@ -226,9 +226,7 @@ async def handle_exceptions(
     except aiohttp.web.HTTPException:
         raise
     except Exception as e:
-        msg_str = (
-            f"Unexpected exception: {str(e)}. " f"Path with query: {request.path_qs}."
-        )
+        msg_str = f"Unexpected exception: {str(e)}. Path with query: {request.path_qs}."
         logging.exception(msg_str)
         payload = {"error": msg_str}
         return json_response(payload, status=HTTPInternalServerError.status_code)
@@ -241,11 +239,8 @@ async def create_secrets_app(config: Config) -> aiohttp.web.Application:
     return app
 
 
-package_version = version(__package__)
-
-
 async def add_version_to_header(request: Request, response: StreamResponse) -> None:
-    response.headers["X-Service-Version"] = f"platform-secrets/{package_version}"
+    response.headers["X-Service-Version"] = f"platform-secrets/{__version__}"
 
 
 async def create_app(config: Config) -> aiohttp.web.Application:
