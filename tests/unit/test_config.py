@@ -2,11 +2,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from apolo_kube_client.config import KubeClientAuthType
 from yarl import URL
 
 from platform_secrets.config import (
     Config,
+    KubeClientAuthType,
     KubeConfig,
     PlatformAuthConfig,
     ServerConfig,
