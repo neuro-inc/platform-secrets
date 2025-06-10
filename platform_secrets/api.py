@@ -1,7 +1,6 @@
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
-from importlib.metadata import version
 from typing import Optional
 
 import aiohttp
@@ -48,6 +47,7 @@ from .validators import (
     secret_response_validator,
     secret_unwrap_validator,
 )
+from platform_secrets import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -251,9 +251,7 @@ async def handle_exceptions(
     except aiohttp.web.HTTPException:
         raise
     except Exception as e:
-        msg_str = (
-            f"Unexpected exception: {str(e)}. " f"Path with query: {request.path_qs}."
-        )
+        msg_str = f"Unexpected exception: {str(e)}. Path with query: {request.path_qs}."
         logging.exception(msg_str)
         payload = {"error": msg_str}
         return json_response(payload, status=HTTPInternalServerError.status_code)
@@ -292,11 +290,8 @@ async def create_kube_client(
         await client.close()
 
 
-package_version = version(__package__)
-
-
 async def add_version_to_header(request: Request, response: StreamResponse) -> None:
-    response.headers["X-Service-Version"] = f"platform-secrets/{package_version}"
+    response.headers["X-Service-Version"] = f"platform-secrets/{__version__}"
 
 
 async def create_app(config: Config) -> aiohttp.web.Application:

@@ -341,7 +341,7 @@ class TestService:
                 target_namespace=new_namespace_name,
                 secret_names=["first-unknown", "second-unknown"],
             )
-            assert str(e) == f"Missing secrets: first-unknown, second-unknown"
+            assert str(e) == "Missing secrets: first-unknown, second-unknown"
 
     async def test_copy_secrets__forbidden_no_labels(
         self,
