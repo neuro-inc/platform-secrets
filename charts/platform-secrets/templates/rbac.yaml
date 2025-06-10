@@ -17,6 +17,11 @@ rules:
     resources: ["namespaces"]
     verbs: ["get", "list", "watch", "create"]
 
+  # allow creation of a network policies
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create"]
+
   # allow all kinds of a secret manipulations
   - apiGroups: [""]
     resources: ["secrets"]
