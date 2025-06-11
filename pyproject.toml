@@ -1,12 +1,51 @@
 [build-system]
-requires = [
-    "setuptools>=45",
-    "wheel",
-    "setuptools_scm>=6.2",
-]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
 
-[tool.setuptools_scm]
+[tool.poetry]
+name = "platform-secrets"
+version = "0.0.0"
+description = "Apolo platform secrets"
+readme = "README.md"
+license = "Proprietary"
+authors = ["Apolo.us"]
+homepage = "https://github.com/neuro-inc/platform-secrets"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+aiohttp = "3.12.12"
+yarl = "1.20.1"
+multidict = "6.4.4"
+neuro-auth-client = "22.6.1"
+trafaret = "2.1.1"
+neuro-logging = "25.1.0"
+apolo-kube-client= "25.5.0"
+
+[tool.poetry.scripts]
+platform-secrets = "platform_secrets.api:main"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "1.16.0"
+pre-commit = "4.2.0"
+pytest = "8.4.0"
+pytest-asyncio = "0.26.0"
+pytest-cov = "6.1.1"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+
+[tool.isort]
+profile = "black"
+combine_as_imports = true
 
 [tool.black]
 exclude = '''
@@ -16,3 +55,53 @@ exclude = '''
     | __pycache__
 )/
 '''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:jose",
+    "ignore::ResourceWarning:"
+]
+
+[tool.coverage.run]
+branch = true
+source = ["platform_secrets"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_untyped_defs = true
+follow_imports = "silent"
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "aiohttp_security"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "aiohttp_security.api"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "jose"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "neuro_auth_client.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pytest"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "setuptools"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "trafaret"
+ignore_missing_imports = true
