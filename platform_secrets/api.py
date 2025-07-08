@@ -30,8 +30,8 @@ from neuro_auth_client import (
 )
 from neuro_auth_client.security import AuthScheme, setup_security
 from neuro_logging import init_logging, setup_sentry
-from platform_secrets import __version__
 
+from platform_secrets import __version__
 from .config import Config
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
@@ -268,9 +268,6 @@ async def create_app(config: Config) -> aiohttp.web.Application:
             logger.info("Initializing Service")
             app[SECRETS_APP_KEY][SERVICE_KEY] = service
             app[SECRETS_APP_KEY][AUTH_CLIENT_KEY] = auth_client
-
-            # TODO: remove migration after deploy to prod
-            await service.migrate_secrets_to_namespace_approach()
 
             yield
 

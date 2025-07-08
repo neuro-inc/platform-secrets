@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 from apolo_kube_client.apolo import (
@@ -150,49 +149,3 @@ class Service:
                 for key, value in item.get("data", {}).items()
             ]
         return result
-
-    # TODO: remove migration after deploy to prod
-    async def migrate_secrets_to_namespace_approach(self) -> None:
-        secrets = await self._kube_api.list_secrets(namespace_name="platform-jobs")
-        secrets_by_org_project = defaultdict(list)
-
-        for secret in secrets:
-            secret_name = secret["metadata"]["name"]
-
-            if not secret_name.startswith("project--"):
-                # not in scope
-                continue
-
-            if not secret["data"]:
-                # doesn't contain any data
-                continue
-
-            # let's parse a name
-            parts = secret_name.split("--")
-            if len(parts) == 3:
-                # doesn't have an org, so we can default to NO_ORG
-                org_name = NO_ORG
-                project_name = parts[1]
-            elif len(parts) == 4:
-                org_name = parts[1]
-                project_name = parts[2]
-            else:
-                logger.error(
-                    "unable to parse a secret name", extra={"name": secret_name}
-                )
-                continue
-
-            secrets_by_org_project[(org_name, project_name)].append(secret)
-
-        for (org_name, project_name), secrets in secrets_by_org_project.items():
-            await create_namespace(self._kube_api._kube, org_name, project_name)
-            for secret in secrets:
-                for key, value in secret["data"].items():
-                    await self.add_secret(
-                        Secret(
-                            key=key,
-                            value=value,
-                            org_name=org_name,
-                            project_name=project_name,
-                        )
-                    )
