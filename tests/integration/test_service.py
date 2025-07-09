@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import base64
 from uuid import uuid4
 
@@ -49,7 +48,9 @@ class TestService:
     ) -> None:
         # ensure that currently the expected namespace doesn't have any secrets
         namespace_name = generate_namespace_name(org_name, project_name)
-        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(namespace=namespace_name)
+        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(
+            namespace=namespace_name
+        )
         assert len(namespace_secrets.items) == 0
 
         secret = Secret(
@@ -59,7 +60,8 @@ class TestService:
 
         # ensure that secrets were created in a proper namespace
         namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(
-            namespace=namespace_name)
+            namespace=namespace_name
+        )
         assert len(namespace_secrets.items) == 1
         expected_secret_name = (
             f"project--{secret.org_name}--{secret.project_name}--secrets"
