@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 from uuid import uuid4
 
 import pytest
+from apolo_kube_client import KubeClient
 from apolo_kube_client.apolo import generate_namespace_name
+from kubernetes.client import V1SecretList
 
-from platform_secrets.kube_client import KubeApi
+# from platform_secrets.kube_client import KubeApi
 from platform_secrets.service import (
     NO_ORG,
     NO_ORG_NORMALIZED,
@@ -18,8 +21,8 @@ from platform_secrets.service import (
 
 class TestService:
     @pytest.fixture
-    def service(self, kube_api: KubeApi) -> Service:
-        return Service(kube_api=kube_api)
+    def service(self, kube_client: KubeClient) -> Service:
+        return Service(kube_client=kube_client)
 
     @pytest.mark.parametrize("key", ["!@#", ".", "..", "...", " ", "\n", "\t", ""])
     async def test_add_secret_invalid_key(
@@ -39,15 +42,15 @@ class TestService:
     async def test_add_secret_valid_key(
         self,
         service: Service,
-        kube_api: KubeApi,
+        kube_client: KubeClient,
         org_name: str,
         project_name: str,
         key: str,
     ) -> None:
         # ensure that currently the expected namespace doesn't have any secrets
         namespace_name = generate_namespace_name(org_name, project_name)
-        namespace_secrets = await kube_api.list_secrets(namespace_name)
-        assert len(namespace_secrets) == 0
+        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(namespace=namespace_name)
+        assert len(namespace_secrets.items) == 0
 
         secret = Secret(
             key, org_name, project_name, base64.b64encode(b"testvalue").decode()
@@ -55,12 +58,13 @@ class TestService:
         await service.add_secret(secret)
 
         # ensure that secrets were created in a proper namespace
-        namespace_secrets = await kube_api.list_secrets(namespace_name)
-        assert len(namespace_secrets) == 1
+        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(
+            namespace=namespace_name)
+        assert len(namespace_secrets.items) == 1
         expected_secret_name = (
             f"project--{secret.org_name}--{secret.project_name}--secrets"
         )
-        assert namespace_secrets[0]["metadata"]["name"] == expected_secret_name
+        assert namespace_secrets.items[0].metadata.name == expected_secret_name
 
     @pytest.mark.parametrize("key", ["-", "_", ".-", "0"])
     async def test_with_org(
