@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from apolo_kube_client.config import KubeConfig
+from apolo_kube_client import KubeConfig
 from yarl import URL
 
 
