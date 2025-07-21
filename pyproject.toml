@@ -30,7 +30,7 @@ apolo-kube-client= "25.7.2"
 platform-secrets = "platform_secrets.api:main"
 
 [tool.poetry.group.dev.dependencies]
-mypy = "1.16.1"
+mypy = "1.17.0"
 pre-commit = "4.2.0"
 pytest = "8.4.1"
 pytest-asyncio = "1.1.0"
