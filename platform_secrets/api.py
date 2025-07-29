@@ -262,7 +262,6 @@ async def create_app(config: Config) -> aiohttp.web.Application:
             kube_client = await exit_stack.enter_async_context(
                 KubeClient(config=config.kube),
             )
-            # kube_api = KubeApi(kube_client=kube_client)
             service = Service(kube_client=kube_client)
 
             logger.info("Initializing Service")

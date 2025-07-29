@@ -8,7 +8,6 @@ from apolo_kube_client import KubeClient
 from apolo_kube_client.apolo import generate_namespace_name
 from kubernetes.client import V1SecretList
 
-# from platform_secrets.kube_client import KubeApi
 from platform_secrets.service import (
     NO_ORG,
     NO_ORG_NORMALIZED,
