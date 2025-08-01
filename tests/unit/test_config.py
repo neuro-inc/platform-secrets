@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from apolo_kube_client.config import KubeClientAuthType
+from apolo_kube_client import KubeClientAuthType
 from yarl import URL
 
 from platform_secrets.config import (
