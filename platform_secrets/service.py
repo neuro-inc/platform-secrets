@@ -86,7 +86,7 @@ class Service:
             return username
         return None
 
-    async def add_secret(self, secret: Secret, encode=False) -> None:
+    async def add_secret(self, secret: Secret, encode: bool = False) -> None:
         secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
         namespace = await create_namespace(
             self._kube_client, secret.org_name, secret.project_name

@@ -58,7 +58,7 @@ class TestService:
         await service.add_secret(secret)
 
         # ensure that secrets were created in a proper namespace
-        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(
+        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(  # type: ignore
             namespace=namespace_name
         )
         assert len(namespace_secrets.items) == 1
