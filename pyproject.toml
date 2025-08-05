@@ -24,7 +24,7 @@ multidict = "6.6.3"
 neuro-auth-client = "25.5.1"
 trafaret = "2.1.1"
 neuro-logging = "25.6.1"
-apolo-kube-client = "25.7.1"
+apolo-kube-client = "25.8.0"
 
 [tool.poetry.scripts]
 platform-secrets = "platform_secrets.api:main"
