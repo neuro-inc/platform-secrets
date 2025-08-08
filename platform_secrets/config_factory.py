@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from apolo_kube_client.config import KubeClientAuthType, KubeConfig
+from apolo_kube_client import KubeClientAuthType, KubeConfig
 from yarl import URL
 
 from .config import (
@@ -48,7 +48,7 @@ class EnvironConfigFactory:
     def _create_kube(self) -> KubeConfig:
         endpoint_url = self._environ["NP_SECRETS_K8S_API_URL"]
         auth_type = KubeClientAuthType(
-            self._environ.get("NP_SECRETS_K8S_AUTH_TYPE", KubeConfig.auth_type.value)
+            self._environ.get("NP_SECRETS_K8S_AUTH_TYPE", KubeClientAuthType.NONE)
         )
         ca_path = self._environ.get("NP_SECRETS_K8S_CA_PATH")
         ca_data = Path(ca_path).read_text() if ca_path else None
@@ -64,17 +64,19 @@ class EnvironConfigFactory:
             auth_cert_key_path=self._environ.get("NP_SECRETS_K8S_AUTH_CERT_KEY_PATH"),
             token=token,
             token_path=token_path,
-            namespace=self._environ.get("NP_SECRETS_K8S_NS", KubeConfig.namespace),
+            namespace=self._environ.get(
+                "NP_SECRETS_K8S_NS", KubeConfig.model_fields["namespace"].default
+            ),
             client_conn_timeout_s=int(
                 self._environ.get("NP_SECRETS_K8S_CLIENT_CONN_TIMEOUT")
-                or KubeConfig.client_conn_timeout_s
+                or KubeConfig.model_fields["client_conn_timeout_s"].default
             ),
             client_read_timeout_s=int(
                 self._environ.get("NP_SECRETS_K8S_CLIENT_READ_TIMEOUT")
-                or KubeConfig.client_read_timeout_s
+                or KubeConfig.model_fields["client_read_timeout_s"].default
             ),
             client_conn_pool_size=int(
                 self._environ.get("NP_SECRETS_K8S_CLIENT_CONN_POOL_SIZE")
-                or KubeConfig.client_conn_pool_size
+                or KubeConfig.model_fields["client_conn_pool_size"].default
             ),
         )

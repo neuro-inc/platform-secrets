@@ -20,7 +20,7 @@ from aiohttp.web import (
 from aiohttp.web_urldispatcher import AbstractRoute
 from aiohttp_security import check_authorized
 from apolo_kube_client.apolo import normalize_name
-from apolo_kube_client.client import kube_client_from_config
+from apolo_kube_client import KubeClient
 from neuro_auth_client import (
     AuthClient,
     ClientSubTreeViewRoot,
@@ -35,7 +35,7 @@ from platform_secrets import __version__
 from .config import Config
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
-from .kube_client import KubeApi
+
 from .service import (
     NO_ORG,
     NO_ORG_NORMALIZED,
@@ -260,10 +260,9 @@ async def create_app(config: Config) -> aiohttp.web.Application:
 
             logger.info("Initializing Kubernetes client")
             kube_client = await exit_stack.enter_async_context(
-                kube_client_from_config(config.kube),
+                KubeClient(config=config.kube),
             )
-            kube_api = KubeApi(kube_client=kube_client)
-            service = Service(kube_api)
+            service = Service(kube_client=kube_client)
 
             logger.info("Initializing Service")
             app[SECRETS_APP_KEY][SERVICE_KEY] = service

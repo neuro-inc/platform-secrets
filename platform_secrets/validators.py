@@ -2,8 +2,7 @@ import base64
 
 import trafaret as t
 
-from .kube_client import SECRET_DUMMY_KEY
-
+SECRET_DUMMY_KEY = "---neuro---"
 SECRET_KEY_PATTERN = r"\A(?!\.\Z|\.\.)[a-zA-Z0-9_\-.]+\Z"
 
 
