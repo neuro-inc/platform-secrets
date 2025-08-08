@@ -134,7 +134,7 @@ class Service:
         with_values: bool = False,
     ) -> list[Secret]:
         namespace = await create_namespace(self._kube_client, org_name, project_name)
-        label_selector = f"{SECRET_API_ORG_LABEL}=org_name"
+        label_selector = f"{SECRET_API_ORG_LABEL}={org_name}"
         secret_list: V1SecretList = await self._kube_client.core_v1.secret.get_list(
             label_selector=label_selector, namespace=namespace.metadata.name
         )
