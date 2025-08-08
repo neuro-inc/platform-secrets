@@ -900,14 +900,14 @@ files = [
 
 [[package]]
 name = "neuro-auth-client"
-version = "25.5.1"
+version = "25.8.0"
 description = "Internal client for Neu.ro auth service"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "neuro_auth_client-25.5.1-py3-none-any.whl", hash = "sha256:e0ecca4c30f62b7efd5bcfc022597a2f782f6e495565a3a9d277e719af86ee04"},
-    {file = "neuro_auth_client-25.5.1.tar.gz", hash = "sha256:d9274c83ea1ba857d3b707f0cb464c244fde6eb6c3bd06831b231dc542d4fe01"},
+    {file = "neuro_auth_client-25.8.0-py3-none-any.whl", hash = "sha256:e6974ddd331e9adcdb04cf9fda54651bba84697fa24bd6417ddc11dfa7be7a9e"},
+    {file = "neuro_auth_client-25.8.0.tar.gz", hash = "sha256:567b40762383874622a78c68c2667de36e45c09ede0a8fec6d6f8cd4f6dbec17"},
 ]
 
 [package.dependencies]
@@ -1904,7 +1904,8 @@ files = [
     {file = "yarl-1.20.1-cp39-cp39-manylinux_2_17_armv7l.manylinux2014_armv7l.manylinux_2_31_armv7l.whl", hash = "sha256:59febc3969b0781682b469d4aca1a5cab7505a4f7b85acf6db01fa500fa3f6ba"},
     {file = "yarl-1.20.1-cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:d2b6fb3622b7e5bf7a6e5b679a69326b4279e805ed1699d749739a61d242449e"},
     {file = "yarl-1.20.1-cp39-cp39-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:749d73611db8d26a6281086f859ea7ec08f9c4c56cec864e52028c8b328db723"},
-    {file = "yarl-1.20.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9427925776096e664c39e131447aa20ec738bdd77c049c48ea5200db2237e000"},
+    {file = "yarl-1.20.1-cp39-cp39-manylinux_2_17_x86_
+    64.manylinux2014_x86_64.whl", hash = "sha256:9427925776096e664c39e131447aa20ec738bdd77c049c48ea5200db2237e000"},
     {file = "yarl-1.20.1-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ff70f32aa316393eaf8222d518ce9118148eddb8a53073c2403863b41033eed5"},
     {file = "yarl-1.20.1-cp39-cp39-musllinux_1_2_aarch64.whl", hash = "sha256:c7ddf7a09f38667aea38801da8b8d6bfe81df767d9dfc8c88eb45827b195cd1c"},
     {file = "yarl-1.20.1-cp39-cp39-musllinux_1_2_armv7l.whl", hash = "sha256:57edc88517d7fc62b174fcfb2e939fbc486a68315d648d7e74d07fac42cec240"},
