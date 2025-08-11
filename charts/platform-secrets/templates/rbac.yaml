@@ -20,7 +20,7 @@ rules:
   # allow creation of a network policies
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
-    verbs: ["get", "list", "create"]
+    verbs: ["get", "list", "create", "patch", "update"]
 
   # allow all kinds of a secret manipulations
   - apiGroups: [""]
