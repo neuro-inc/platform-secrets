@@ -19,6 +19,7 @@ secretsNamespace: default
 platform:
   clusterName: ""
   authUrl: https://staging.neu.ro
+  eventsUrl: http://platform-events:8080/apis/events
   token: {}
 
 ingress:

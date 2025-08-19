@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from apolo_kube_client import KubeConfig
+from apolo_events_client import EventsClientConfig
 from yarl import URL
 
 
@@ -23,3 +24,4 @@ class Config:
     platform_auth: PlatformAuthConfig
     kube: KubeConfig
     cluster_name: str
+    events: Optional[EventsClientConfig]

@@ -11,6 +11,7 @@ from platform_secrets.config import (
     PlatformAuthConfig,
     ServerConfig,
 )
+from apolo_events_client import EventsClientConfig
 from platform_secrets.config_factory import EnvironConfigFactory
 
 CA_DATA_PEM = "this-is-certificate-authority-public-key"
@@ -46,6 +47,7 @@ def test_create_default() -> None:
             auth_type=KubeClientAuthType.NONE,
         ),
         cluster_name="",
+        events=None,
     )
 
 
@@ -87,4 +89,30 @@ def test_create_custom(cert_authority_path: str, token_path: str) -> None:
             client_conn_pool_size=333,
         ),
         cluster_name="default",
+        events=None,
+    )
+
+
+def test_create_with_events() -> None:
+    environ: dict[str, Any] = {
+        "NP_SECRETS_PLATFORM_AUTH_URL": "-",
+        "NP_SECRETS_PLATFORM_AUTH_TOKEN": "platform-auth-token",
+        "NP_SECRETS_K8S_API_URL": "https://localhost:8443",
+        "PLATFORM_EVENTS_URL": "http://platform-events:8080/apis/events",
+        "PLATFORM_EVENTS_TOKEN": "events-token",
+    }
+    config = EnvironConfigFactory(environ).create()
+    assert config == Config(
+        server=ServerConfig(host="0.0.0.0", port=8080),
+        platform_auth=PlatformAuthConfig(url=None, token="platform-auth-token"),
+        kube=KubeConfig(
+            endpoint_url="https://localhost:8443",
+            auth_type=KubeClientAuthType.NONE,
+        ),
+        cluster_name="",
+        events=EventsClientConfig(
+            url=URL("http://platform-events:8080/apis/events"),
+            token="events-token",
+            name="platform-secrets",
+        ),
     )

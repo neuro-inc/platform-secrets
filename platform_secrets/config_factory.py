@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from apolo_kube_client import KubeClientAuthType, KubeConfig
+from apolo_events_client import EventsClientConfig
 from yarl import URL
 
 from .config import (
@@ -33,6 +34,7 @@ class EnvironConfigFactory:
             platform_auth=self._create_platform_auth(),
             kube=self._create_kube(),
             cluster_name=cluster_name,
+            events=self._create_events(),
         )
 
     def _create_server(self) -> ServerConfig:
@@ -79,4 +81,14 @@ class EnvironConfigFactory:
                 self._environ.get("NP_SECRETS_K8S_CLIENT_CONN_POOL_SIZE")
                 or KubeConfig.model_fields["client_conn_pool_size"].default
             ),
+        )
+
+    def _create_events(self) -> Optional[EventsClientConfig]:
+        events_url = self._environ.get("PLATFORM_EVENTS_URL")
+        if not events_url:
+            return None
+        return EventsClientConfig(
+            url=URL(events_url),
+            token=self._environ["PLATFORM_EVENTS_TOKEN"],
+            name="platform-secrets",
         )

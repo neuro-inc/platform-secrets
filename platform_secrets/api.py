@@ -35,6 +35,7 @@ from platform_secrets import __version__
 from .config import Config
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
+from .project_deleter import ProjectDeleter
 
 from .service import (
     NO_ORG,
@@ -267,6 +268,12 @@ async def create_app(config: Config) -> aiohttp.web.Application:
             logger.info("Initializing Service")
             app[SECRETS_APP_KEY][SERVICE_KEY] = service
             app[SECRETS_APP_KEY][AUTH_CLIENT_KEY] = auth_client
+
+            if config.events:
+                logger.info("Initializing ProjectDeleter")
+                await exit_stack.enter_async_context(
+                    ProjectDeleter(config.events, service)
+                )
 
             yield
 
