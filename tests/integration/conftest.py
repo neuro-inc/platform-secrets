@@ -43,6 +43,7 @@ def config_factory(
             "platform_auth": auth_config,
             "kube": kube_config,
             "cluster_name": cluster_name,
+            "events": None,
         }
         kwargs = {**defaults, **kwargs}
         return Config(**kwargs)
