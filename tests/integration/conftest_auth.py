@@ -1,6 +1,5 @@
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
-from typing import Optional
 
 import pytest
 from aiohttp.hdrs import AUTHORIZATION
@@ -43,7 +42,7 @@ def auth_config(token_factory: Callable[[str], str]) -> Iterator[PlatformAuthCon
 @pytest.fixture
 async def auth_client(
     auth_config: PlatformAuthConfig,
-) -> AsyncGenerator[AuthClient, None]:
+) -> AsyncGenerator[AuthClient]:
     async with AuthClient(auth_config.url, auth_config.token) as client:
         await client.ping()
         yield client
@@ -64,13 +63,13 @@ async def regular_user_factory(
     token_factory: Callable[[str], str],
     admin_token: str,
     cluster_name: str,
-) -> AsyncIterator[Callable[[Optional[str]], Awaitable[_User]]]:
+) -> AsyncIterator[Callable[[str | None], Awaitable[_User]]]:
     async def _factory(
-        name: Optional[str] = None,
+        name: str | None = None,
         skip_grant: bool = False,
-        org_name: Optional[str] = None,
+        org_name: str | None = None,
         org_level: bool = False,
-        project_name: Optional[str] = None,
+        project_name: str | None = None,
     ) -> _User:
         if not name:
             name = f"user-{random_name()}"
