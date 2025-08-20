@@ -1,7 +1,6 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 from apolo_kube_client import KubeClientAuthType, KubeConfig
 from yarl import URL
@@ -16,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class EnvironConfigFactory:
-    def __init__(self, environ: Optional[dict[str, str]] = None) -> None:
+    def __init__(self, environ: dict[str, str] | None = None) -> None:
         self._environ = environ or os.environ
 
-    def _get_url(self, name: str) -> Optional[URL]:
+    def _get_url(self, name: str) -> URL | None:
         value = self._environ[name]
         if value == "-":
             return None

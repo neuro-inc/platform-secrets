@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
 from apolo_kube_client import KubeConfig
 from yarl import URL
@@ -13,7 +12,7 @@ class ServerConfig:
 
 @dataclass(frozen=True)
 class PlatformAuthConfig:
-    url: Optional[URL]
+    url: URL | None
     token: str = field(repr=False)
 
 
