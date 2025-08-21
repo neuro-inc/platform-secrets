@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
 from apolo_kube_client import KubeConfig
 from apolo_events_client import EventsClientConfig
@@ -14,7 +13,7 @@ class ServerConfig:
 
 @dataclass(frozen=True)
 class PlatformAuthConfig:
-    url: Optional[URL]
+    url: URL | None
     token: str = field(repr=False)
 
 
@@ -24,4 +23,4 @@ class Config:
     platform_auth: PlatformAuthConfig
     kube: KubeConfig
     cluster_name: str
-    events: Optional[EventsClientConfig]
+    events: EventsClientConfig | None

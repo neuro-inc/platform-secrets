@@ -4,8 +4,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from kubernetes.client import V1SecretList
-from kubernetes.client.models import V1ObjectMeta, V1Secret
 from apolo_kube_client import (
     KubeClient,
     ResourceBadRequest,
@@ -18,7 +16,8 @@ from apolo_kube_client.apolo import (
     generate_namespace_name,
     normalize_name,
 )
-
+from kubernetes.client import V1SecretList
+from kubernetes.client.models import V1ObjectMeta, V1Secret
 
 logger = logging.getLogger()
 

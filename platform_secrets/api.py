@@ -1,7 +1,6 @@
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack
-from typing import Optional
 
 import aiohttp
 import aiohttp.web
@@ -19,8 +18,8 @@ from aiohttp.web import (
 )
 from aiohttp.web_urldispatcher import AbstractRoute
 from aiohttp_security import check_authorized
-from apolo_kube_client.apolo import normalize_name
 from apolo_kube_client import KubeClient
+from apolo_kube_client.apolo import normalize_name
 from neuro_auth_client import (
     AuthClient,
     ClientSubTreeViewRoot,
@@ -32,11 +31,11 @@ from neuro_auth_client.security import AuthScheme, setup_security
 from neuro_logging import init_logging, setup_sentry
 
 from platform_secrets import __version__
+
 from .config import Config
 from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
 from .project_deleter import ProjectDeleter
-
 from .service import (
     NO_ORG,
     NO_ORG_NORMALIZED,
@@ -112,7 +111,7 @@ class SecretsApiHandler:
     def _get_org_secrets_uri(self, org_name: str) -> str:
         return f"{self._secret_cluster_uri}/{org_name}"
 
-    def _get_secrets_uri(self, project_name: str, org_name: Optional[str]) -> str:
+    def _get_secrets_uri(self, project_name: str, org_name: str | None) -> str:
         if org_name is None or org_name == normalize_name(NO_ORG):
             base = self._secret_cluster_uri
         else:
@@ -127,11 +126,11 @@ class SecretsApiHandler:
         return Permission(self._get_secret_uri(secret), "read")
 
     def _get_secrets_write_perm(
-        self, project_name: str, org_name: Optional[str]
+        self, project_name: str, org_name: str | None
     ) -> Permission:
         return Permission(self._get_secrets_uri(project_name, org_name), "write")
 
-    def _convert_secret_to_payload(self, secret: Secret) -> dict[str, Optional[str]]:
+    def _convert_secret_to_payload(self, secret: Secret) -> dict[str, str | None]:
         return {
             "key": secret.key,
             "org_name": secret.org_name,

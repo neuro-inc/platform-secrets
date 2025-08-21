@@ -2,12 +2,12 @@ import json
 import subprocess
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pytest
+from apolo_kube_client import KubeClient, KubeClientAuthType, KubeConfig
 from apolo_kube_client.apolo import generate_namespace_name
-from apolo_kube_client import KubeClientAuthType, KubeConfig, KubeClient
-from kubernetes.client import V1SecretList, V1Secret
+from kubernetes.client import V1Secret, V1SecretList
 
 # from platform_secrets.config import KubeConfig
 from platform_secrets.service import NO_ORG
@@ -52,7 +52,7 @@ def kube_config_user_payload(kube_config_payload: dict[str, Any]) -> Any:
 @pytest.fixture(scope="session")
 def cert_authority_data_pem(
     kube_config_cluster_payload: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     ca_path = kube_config_cluster_payload["certificate-authority"]
     if ca_path:
         return Path(ca_path).read_text()
@@ -63,7 +63,7 @@ def cert_authority_data_pem(
 async def kube_config(
     kube_config_cluster_payload: dict[str, Any],
     kube_config_user_payload: dict[str, Any],
-    cert_authority_data_pem: Optional[str],
+    cert_authority_data_pem: str | None,
 ) -> KubeConfig:
     cluster = kube_config_cluster_payload
     user = kube_config_user_payload

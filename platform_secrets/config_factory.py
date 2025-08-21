@@ -1,7 +1,6 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 from apolo_kube_client import KubeClientAuthType, KubeConfig
 from apolo_events_client import EventsClientConfig
@@ -17,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 class EnvironConfigFactory:
-    def __init__(self, environ: Optional[dict[str, str]] = None) -> None:
+    def __init__(self, environ: dict[str, str] | None = None) -> None:
         self._environ = environ or os.environ
 
-    def _get_url(self, name: str) -> Optional[URL]:
+    def _get_url(self, name: str) -> URL | None:
         value = self._environ[name]
         if value == "-":
             return None
@@ -83,7 +82,7 @@ class EnvironConfigFactory:
             ),
         )
 
-    def _create_events(self) -> Optional[EventsClientConfig]:
+    def _create_events(self) -> EventsClientConfig | None:
         events_url = self._environ.get("PLATFORM_EVENTS_URL")
         if not events_url:
             return None
