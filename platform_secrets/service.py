@@ -157,3 +157,15 @@ class Service:
                 for key, value in (secret.data or {}).items()
             ]
         return result
+
+    async def delete_all_secrets_for_project(
+        self, org_name: str, project_name: str
+    ) -> None:
+        secrets = await self.get_all_secrets(org_name, project_name)
+        for secret in secrets:
+            try:
+                await self.remove_secret(secret)
+            except SecretNotFound:
+                logger.debug(
+                    f"Secret {secret.key!r} already deleted from project {project_name!r}"
+                )
