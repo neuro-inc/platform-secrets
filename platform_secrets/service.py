@@ -161,11 +161,18 @@ class Service:
     async def delete_all_secrets_for_project(
         self, org_name: str, project_name: str
     ) -> None:
-        secrets = await self.get_all_secrets(org_name, project_name)
-        for secret in secrets:
-            try:
-                await self.remove_secret(secret)
-            except SecretNotFound:
-                logger.debug(
-                    f"Secret {secret.key!r} already deleted from project {project_name!r}"
-                )
+        kube_secret_name = self._get_kube_secret_name(project_name, org_name)
+        namespace_name = generate_namespace_name(org_name, project_name)
+
+        try:
+            await self._kube_client.core_v1.secret.delete(
+                kube_secret_name, namespace=namespace_name
+            )
+            logger.info(
+                f"Deleted K8s secret {kube_secret_name!r} for project {project_name!r} "
+                f"from namespace {namespace_name!r}"
+            )
+        except ResourceNotFound:
+            logger.debug(
+                f"K8s secret {kube_secret_name!r} not found in namespace {namespace_name!r}"
+            )
