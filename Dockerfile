@@ -36,10 +36,8 @@ ENV PATH=/home/${SERVICE_NAME}/.local/bin:$PATH
 
 # Copy everything from the builder’s user‐site into your service’s user‐site
 COPY --from=builder --chown=$SERVICE_NAME:$SERVICE_GID /root/.local /home/${SERVICE_NAME}/.local
-
 WORKDIR /app
 
-USER $SERVICE_NAME
 ENV NP_SECRETS_API_PORT=8080
 EXPOSE $NP_SECRETS_API_PORT
 
