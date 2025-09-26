@@ -5,6 +5,7 @@ from platform_secrets.validators import (
     SECRET_DUMMY_KEY,
     secret_request_validator,
     secret_response_validator,
+    secret_with_value_response_validator,
 )
 
 
@@ -162,3 +163,49 @@ def test_secret_response_validator__with_org(
     }
     result = validator.check(payload)
     assert result == payload
+
+
+def test_secret_with_value_response_validator__valid(
+    org_name: str,
+    project_name: str,
+) -> None:
+    validator = secret_with_value_response_validator
+    payload = {
+        "key": "test-key",
+        "value": "test-value",
+        "owner": "test-owner",
+        "org_name": org_name,
+        "project_name": project_name,
+    }
+    result = validator.check(payload)
+    assert result == payload
+
+
+def test_secret_with_value_response_validator__no_org(
+    project_name: str,
+) -> None:
+    validator = secret_with_value_response_validator
+    payload = {
+        "key": "test-key",
+        "value": "test-value",
+        "owner": "test-owner",
+        "org_name": None,
+        "project_name": project_name,
+    }
+    result = validator.check(payload)
+    assert result == payload
+
+
+def test_secret_with_value_response_validator__missing_value(
+    org_name: str,
+    project_name: str,
+) -> None:
+    validator = secret_with_value_response_validator
+    payload = {
+        "key": "test-key",
+        "owner": "test-owner",
+        "org_name": org_name,
+        "project_name": project_name,
+    }
+    with pytest.raises(t.DataError, match="is required"):
+        validator.check(payload)

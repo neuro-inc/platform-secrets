@@ -53,3 +53,14 @@ secret_response_validator = (
 )
 
 secret_list_response_validator = t.List(secret_response_validator)
+
+secret_with_value_response_validator = (
+    t.Dict(
+        {
+            "key": t.String,
+            "value": t.String,
+            "owner": t.String,
+        }
+    )
+    + org_project_validator
+)

@@ -126,6 +126,29 @@ class Service:
         except (ResourceNotFound, ResourceInvalid):
             raise SecretNotFound.create(secret.key)
 
+    async def get_secret(self, secret: Secret) -> Secret:
+        try:
+            secret_name = self._get_kube_secret_name(
+                secret.project_name, secret.org_name
+            )
+            namespace_name = generate_namespace_name(
+                secret.org_name, secret.project_name
+            )
+            kube_secret: V1Secret = await self._kube_client.core_v1.secret.get(
+                secret_name, namespace=namespace_name
+            )
+            if not kube_secret.data or secret.key not in kube_secret.data:
+                raise SecretNotFound.create(secret.key)
+
+            return Secret(
+                key=secret.key,
+                value=kube_secret.data[secret.key],
+                org_name=secret.org_name,
+                project_name=secret.project_name,
+            )
+        except ResourceNotFound:
+            raise SecretNotFound.create(secret.key)
+
     async def get_all_secrets(
         self,
         org_name: str,
