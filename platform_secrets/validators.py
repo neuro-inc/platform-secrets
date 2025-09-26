@@ -32,6 +32,13 @@ org_project_validator = t.Dict(
         t.Key("project_name"): t.String(min_length=1, max_length=253),
     }
 )
+
+org_project_required_validator = t.Dict(
+    {
+        t.Key("org_name"): t.String(min_length=1, max_length=253),
+        t.Key("project_name"): t.String(min_length=1, max_length=253),
+    }
+)
 secret_request_validator = (
     t.Dict(
         {

@@ -1,3 +1,4 @@
+import base64
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -715,7 +716,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint + "/test-key",
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPForbidden.status_code, await resp.text()
 
@@ -726,11 +727,13 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name=project_name)
+        user = await regular_user_factory(
+            org_name="test-org", project_name=project_name
+        )
         async with client.get(
             secrets_api.endpoint + "/nonexistent-key",
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPNotFound.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -743,11 +746,14 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name=project_name)
+        user = await regular_user_factory(
+            org_name="test-org", project_name=project_name
+        )
 
         payload: dict[str, Any] = {
             "key": "test-secret",
-            "value": "dGVzdC12YWx1ZQ==",
+            "value": base64.b64encode(b"test-value").decode(),
+            "org_name": "test-org",
             "project_name": project_name,
         }
         async with client.post(
@@ -758,50 +764,13 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint + "/test-secret",
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "test-secret",
                 "value": "test-value",
-                "owner": project_name,
-                "org_name": NO_ORG_NORMALIZED,
-                "project_name": project_name,
-            }
-
-    async def test_get_secret__with_org(
-        self,
-        secrets_api: SecretsApiEndpoints,
-        client: aiohttp.ClientSession,
-        regular_user_factory: Callable[..., Awaitable[_User]],
-        project_name: str,
-    ) -> None:
-        user = await regular_user_factory(
-            org_name="test-org", project_name=project_name
-        )
-
-        payload: dict[str, Any] = {
-            "key": "org-secret",
-            "value": "b3JnLXNlY3JldA==",
-            "org_name": "test-org",
-            "project_name": project_name,
-        }
-        async with client.post(
-            secrets_api.endpoint, headers=user.headers, json=payload
-        ) as resp:
-            assert resp.status == HTTPCreated.status_code, await resp.text()
-
-        async with client.get(
-            secrets_api.endpoint + "/org-secret",
-            headers=user.headers,
-            params={"org_name": "test-org", "project_name": project_name},
-        ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == {
-                "key": "org-secret",
-                "value": "org-secret",
                 "owner": project_name,
                 "org_name": "test-org",
                 "project_name": project_name,
@@ -814,11 +783,13 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name=project_name)
+        user = await regular_user_factory(
+            org_name="test-org", project_name=project_name
+        )
         async with client.get(
             secrets_api.endpoint + "/...",
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPBadRequest.status_code, await resp.text()
             resp_payload = await resp.json()

@@ -44,6 +44,7 @@ from .service import (
     Service,
 )
 from .validators import (
+    org_project_required_validator,
     org_project_validator,
     secret_key_validator,
     secret_list_response_validator,
@@ -194,13 +195,12 @@ class SecretsApiHandler:
 
     async def handle_get(self, request: Request) -> Response:
         username = await check_authorized(request)
-        payload = org_project_validator.check(request.query)
-        org_name = payload.get("org_name")
+        payload = org_project_required_validator.check(request.query)
+        org_name = payload["org_name"]
         project_name = payload["project_name"]
         secret_key = request.match_info["key"]
         secret_key = secret_key_validator.check(secret_key)
 
-        org_name = org_name or normalize_name(NO_ORG)
         secret = Secret(
             key=secret_key,
             org_name=org_name,
