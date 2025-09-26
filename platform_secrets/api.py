@@ -44,11 +44,13 @@ from .service import (
     Service,
 )
 from .validators import (
+    org_project_required_validator,
     org_project_validator,
     secret_key_validator,
     secret_list_response_validator,
     secret_request_validator,
     secret_response_validator,
+    secret_with_value_response_validator,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,6 +90,7 @@ class SecretsApiHandler:
             [
                 aiohttp.web.post("", self.handle_post),
                 aiohttp.web.get("", self.handle_get_all),
+                aiohttp.web.get("/{key}", self.handle_get),
                 aiohttp.web.delete("/{key}", self.handle_delete),
             ]
         )
@@ -188,6 +191,40 @@ class SecretsApiHandler:
         ]
         resp_payload = [self._convert_secret_to_payload(secret) for secret in secrets]
         resp_payload = secret_list_response_validator.check(resp_payload)
+        return json_response(resp_payload)
+
+    async def handle_get(self, request: Request) -> Response:
+        username = await check_authorized(request)
+        payload = org_project_required_validator.check(request.query)
+        org_name = payload["org_name"]
+        project_name = payload["project_name"]
+        secret_key = request.match_info["key"]
+        secret_key = secret_key_validator.check(secret_key)
+
+        secret = Secret(
+            key=secret_key,
+            org_name=org_name,
+            project_name=project_name,
+        )
+
+        tree = await self._auth_client.get_permissions_tree(
+            username, self._secret_cluster_uri
+        )
+        if not self._check_secret_read_perm(secret, tree):
+            await check_permissions(
+                request,
+                [self._get_secret_read_perm(secret)],
+            )
+
+        try:
+            secret = await self._service.get_secret(secret)
+        except SecretNotFound as exc:
+            error_payload = {"error": str(exc)}
+            return json_response(error_payload, status=HTTPNotFound.status_code)
+
+        resp_payload = self._convert_secret_to_payload(secret)
+        resp_payload["value"] = secret.value
+        resp_payload = secret_with_value_response_validator.check(resp_payload)
         return json_response(resp_payload)
 
     async def handle_delete(self, request: Request) -> Response:

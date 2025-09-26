@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import logging
 import re
 from dataclasses import dataclass, field
@@ -124,6 +125,35 @@ class Service:
                 secret_name, secret.key, namespace=secret.namespace_name
             )
         except (ResourceNotFound, ResourceInvalid):
+            raise SecretNotFound.create(secret.key)
+
+    async def get_secret(self, secret: Secret) -> Secret:
+        try:
+            secret_name = self._get_kube_secret_name(
+                secret.project_name, secret.org_name
+            )
+            namespace_name = generate_namespace_name(
+                secret.org_name, secret.project_name
+            )
+            kube_secret: V1Secret = await self._kube_client.core_v1.secret.get(
+                secret_name, namespace=namespace_name
+            )
+            if not kube_secret.data or secret.key not in kube_secret.data:
+                raise SecretNotFound.create(secret.key)
+
+            raw_value = kube_secret.data[secret.key]
+            try:
+                decoded_value = base64.b64decode(raw_value).decode("utf-8")
+            except Exception:
+                decoded_value = raw_value
+
+            return Secret(
+                key=secret.key,
+                value=decoded_value,
+                org_name=secret.org_name,
+                project_name=secret.project_name,
+            )
+        except ResourceNotFound:
             raise SecretNotFound.create(secret.key)
 
     async def get_all_secrets(
