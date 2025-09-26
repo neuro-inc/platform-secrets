@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import logging
 import re
 from dataclasses import dataclass, field
@@ -140,9 +141,15 @@ class Service:
             if not kube_secret.data or secret.key not in kube_secret.data:
                 raise SecretNotFound.create(secret.key)
 
+            raw_value = kube_secret.data[secret.key]
+            try:
+                decoded_value = base64.b64decode(raw_value).decode("utf-8")
+            except Exception:
+                decoded_value = raw_value
+
             return Secret(
                 key=secret.key,
-                value=kube_secret.data[secret.key],
+                value=decoded_value,
                 org_name=secret.org_name,
                 project_name=secret.project_name,
             )

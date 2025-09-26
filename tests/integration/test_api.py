@@ -747,7 +747,7 @@ class TestApi:
 
         payload: dict[str, Any] = {
             "key": "test-secret",
-            "value": "secret-value",
+            "value": "dGVzdC12YWx1ZQ==",
             "project_name": project_name,
         }
         async with client.post(
@@ -764,7 +764,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "test-secret",
-                "value": "secret-value",
+                "value": "test-value",
                 "owner": project_name,
                 "org_name": NO_ORG_NORMALIZED,
                 "project_name": project_name,
@@ -783,7 +783,7 @@ class TestApi:
 
         payload: dict[str, Any] = {
             "key": "org-secret",
-            "value": "org-secret-value",
+            "value": "b3JnLXNlY3JldA==",
             "org_name": "test-org",
             "project_name": project_name,
         }
@@ -801,7 +801,7 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "org-secret",
-                "value": "org-secret-value",
+                "value": "org-secret",
                 "owner": project_name,
                 "org_name": "test-org",
                 "project_name": project_name,
