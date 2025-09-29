@@ -115,7 +115,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -132,7 +132,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -149,6 +149,7 @@ class TestApi:
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": project_name,
         }
         async with client.post(
@@ -201,7 +202,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": "test-project"},
+            params={"org_name": "test-org", "project_name": "test-project"},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -217,7 +218,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": "other-project"},
+            params={"org_name": "test-org", "project_name": "other-project"},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -232,6 +233,7 @@ class TestApi:
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": project_name,
         }
         async with client.post(secrets_api.endpoint, json=payload) as resp:
@@ -294,6 +296,7 @@ class TestApi:
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": project_name,
         }
         async with client.post(
@@ -311,7 +314,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -383,6 +386,7 @@ class TestApi:
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": project_name,
         }
         async with client.post(
@@ -400,7 +404,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -442,7 +446,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -472,7 +476,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -521,7 +525,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -549,7 +553,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -571,7 +575,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -585,7 +589,8 @@ class TestApi:
         project_name: str,
     ) -> None:
         async with client.delete(
-            secrets_api.endpoint + "/key", params={"project_name": project_name}
+            secrets_api.endpoint + "/key",
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPUnauthorized.status_code, await resp.text()
 
@@ -600,7 +605,7 @@ class TestApi:
         async with client.delete(
             secrets_api.endpoint + "/key",
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPForbidden.status_code, await resp.text()
 
@@ -666,7 +671,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user1.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -682,7 +687,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user2.headers,
-            params={"project_name": project_name},
+            params={"org_name": "test-org", "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
