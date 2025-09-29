@@ -145,7 +145,9 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name=project_name)
+        user = await regular_user_factory(
+            org_name="test-org", project_name=project_name
+        )
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
@@ -188,10 +190,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(
+            org_name="test-org", project_name="test-project"
+        )
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": "test-project",
         }
         async with client.post(
@@ -248,6 +253,7 @@ class TestApi:
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": "test-project",
         }
         user = await regular_user_factory(skip_grant=True)
@@ -292,7 +298,9 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(
+            org_name="test-org", project_name="test-project"
+        )
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
@@ -379,9 +387,13 @@ class TestApi:
         project_name: str,
     ) -> None:
         base_name = random_name()
-        await regular_user_factory(base_name, project_name=project_name)
+        await regular_user_factory(
+            base_name, org_name="test-org", project_name=project_name
+        )
         user = await regular_user_factory(
-            f"{base_name}/something/more", project_name=project_name
+            f"{base_name}/something/more",
+            org_name="test-org",
+            project_name=project_name,
         )
         payload: dict[str, Any] = {
             "key": "kkkk",
@@ -424,11 +436,14 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name=project_name)
+        user = await regular_user_factory(
+            org_name="test-org", project_name=project_name
+        )
 
         payload: dict[str, Any] = {
             "key": "k1",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": project_name,
         }
         async with client.post(
@@ -460,7 +475,12 @@ class TestApi:
                 }
             ]
 
-        payload = {"key": "k2", "value": "vvvv", "project_name": project_name}
+        payload = {
+            "key": "k2",
+            "value": "vvvv",
+            "org_name": "test-org",
+            "project_name": project_name,
+        }
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -496,7 +516,12 @@ class TestApi:
                 },
             ]
 
-        payload = {"key": "k1", "value": "rrrr", "project_name": project_name}
+        payload = {
+            "key": "k1",
+            "value": "rrrr",
+            "org_name": "test-org",
+            "project_name": project_name,
+        }
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -509,7 +534,12 @@ class TestApi:
                 "project_name": project_name,
             }
 
-        payload = {"key": "k1", "value": "rrrr", "project_name": project_name}
+        payload = {
+            "key": "k1",
+            "value": "rrrr",
+            "org_name": "test-org",
+            "project_name": project_name,
+        }
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -546,7 +576,8 @@ class TestApi:
             ]
 
         async with client.delete(
-            secrets_api.endpoint + "/k1?project_name=test-project", headers=user.headers
+            secrets_api.endpoint + "/k1?org_name=test-org&project_name=test-project",
+            headers=user.headers,
         ) as resp:
             assert resp.status == HTTPNoContent.status_code, await resp.text()
 
@@ -568,7 +599,8 @@ class TestApi:
             ]
 
         async with client.delete(
-            secrets_api.endpoint + "/k2?project_name=test-project", headers=user.headers
+            secrets_api.endpoint + "/k2?org_name=test-org&project_name=test-project",
+            headers=user.headers,
         ) as resp:
             assert resp.status == HTTPNoContent.status_code, await resp.text()
 
@@ -615,9 +647,11 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(
+            org_name="test-org", project_name="test-project"
+        )
         async with client.delete(
-            secrets_api.endpoint + "/...?project_name=test-project",
+            secrets_api.endpoint + "/...?org_name=test-org&project_name=test-project",
             headers=user.headers,
         ) as resp:
             assert resp.status == HTTPBadRequest.status_code, await resp.text()
@@ -631,9 +665,12 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(
+            org_name="test-org", project_name="test-project"
+        )
         async with client.delete(
-            secrets_api.endpoint + "/unknown?project_name=test-project",
+            secrets_api.endpoint
+            + "/unknown?org_name=test-org&project_name=test-project",
             headers=user.headers,
         ) as resp:
             assert resp.status == HTTPNotFound.status_code, await resp.text()
@@ -648,12 +685,17 @@ class TestApi:
         share_secret: Callable[[str, str, str], Awaitable[None]],
         project_name: str,
     ) -> None:
-        user1 = await regular_user_factory(project_name=project_name)
-        user2 = await regular_user_factory(project_name=project_name)
+        user1 = await regular_user_factory(
+            org_name="test-org", project_name=project_name
+        )
+        user2 = await regular_user_factory(
+            org_name="test-org", project_name=project_name
+        )
 
         payload: dict[str, Any] = {
             "key": "k1",
             "value": "vvvv",
+            "org_name": "test-org",
             "project_name": project_name,
         }
         async with client.post(
