@@ -10,7 +10,6 @@ from apolo_kube_client.apolo import generate_namespace_name
 from kubernetes.client import V1Secret, V1SecretList
 
 # from platform_secrets.config import KubeConfig
-from platform_secrets.service import NO_ORG
 
 
 @pytest.fixture
@@ -85,21 +84,17 @@ async def kube_client(
     project_name: str,
 ) -> AsyncIterator[KubeClient]:
     async def _drop_all_secrets(kube_client: KubeClient) -> None:
-        orgs = [org_name, NO_ORG]
-        for org in orgs:
-            namespace_name = generate_namespace_name(org, project_name)
-            secret_list: V1SecretList = await kube_client.core_v1.secret.get_list(
-                namespace=namespace_name
-            )
-            secret: V1Secret
-            for secret in secret_list.items:
-                secret_name: str = secret.metadata.name
-                if secret_name.startswith("user--") or secret_name.startswith(
-                    "project--"
-                ):
-                    await kube_client.core_v1.secret.delete(
-                        secret_name, namespace=namespace_name
-                    )
+        namespace_name = generate_namespace_name(org_name, project_name)
+        secret_list: V1SecretList = await kube_client.core_v1.secret.get_list(
+            namespace=namespace_name
+        )
+        secret: V1Secret
+        for secret in secret_list.items:
+            secret_name: str = secret.metadata.name
+            if secret_name.startswith("user--") or secret_name.startswith("project--"):
+                await kube_client.core_v1.secret.delete(
+                    secret_name, namespace=namespace_name
+                )
 
     async with KubeClient(config=kube_config) as kube_client:
         await _drop_all_secrets(kube_client)

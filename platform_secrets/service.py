@@ -11,10 +11,8 @@ from apolo_kube_client import (
     ResourceNotFound,
 )
 from apolo_kube_client.apolo import (
-    NO_ORG,
     create_namespace,
     generate_namespace_name,
-    normalize_name,
 )
 from kubernetes.client import V1SecretList
 from kubernetes.client.models import V1ObjectMeta, V1Secret
@@ -23,8 +21,6 @@ logger = logging.getLogger()
 
 SECRET_API_ORG_LABEL = "platform.neuromation.io/secret-api-org-name"
 APPS_SECRET_NAME = "apps-secrets"
-
-NO_ORG_NORMALIZED = normalize_name(NO_ORG)
 
 
 class PlatformSecretsError(Exception):
@@ -69,7 +65,6 @@ class Service:
 
     def _get_kube_secret_name(self, project_name: str, org_name: str) -> str:
         path = project_name
-        org_name = NO_ORG_NORMALIZED if org_name == NO_ORG else org_name
         path = f"{org_name}/{path}"
         return f"project--{path.replace('/', '--')}--secrets"
 
@@ -79,7 +74,6 @@ class Service:
         match = re.fullmatch(r"project--(?P<user_name>.*)--secrets", secret_name)
         if match:
             path: str = match.group("user_name").replace("--", "/")
-            org_name = NO_ORG_NORMALIZED if org_name == NO_ORG else org_name
             assert path.startswith(org_name + "/")
             _, username = path.split("/", 1)
             return username

@@ -27,18 +27,11 @@ secret_value_validator = t.String(max_length=1024 * 1024) >> check_base64
 
 org_project_validator = t.Dict(
     {
-        t.Key("org_name", optional=True): t.String(min_length=1, max_length=253)
-        | t.Null(),
-        t.Key("project_name"): t.String(min_length=1, max_length=253),
-    }
-)
-
-org_project_required_validator = t.Dict(
-    {
         t.Key("org_name"): t.String(min_length=1, max_length=253),
         t.Key("project_name"): t.String(min_length=1, max_length=253),
     }
 )
+
 secret_request_validator = (
     t.Dict(
         {
