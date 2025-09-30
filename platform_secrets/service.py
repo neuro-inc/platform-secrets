@@ -64,8 +64,7 @@ class Service:
         self._kube_client = kube_client
 
     def _get_kube_secret_name(self, project_name: str, org_name: str) -> str:
-        path = project_name
-        path = f"{org_name}/{path}"
+        path = f"{org_name}/{project_name}"
         return f"project--{path.replace('/', '--')}--secrets"
 
     def _get_project_name_from_secret_name(
