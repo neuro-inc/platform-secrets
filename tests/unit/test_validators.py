@@ -181,21 +181,6 @@ def test_secret_with_value_response_validator__valid(
     assert result == payload
 
 
-def test_secret_with_value_response_validator__no_org(
-    project_name: str,
-) -> None:
-    validator = secret_with_value_response_validator
-    payload = {
-        "key": "test-key",
-        "value": "test-value",
-        "owner": "test-owner",
-        "org_name": None,
-        "project_name": project_name,
-    }
-    result = validator.check(payload)
-    assert result == payload
-
-
 def test_secret_with_value_response_validator__missing_value(
     org_name: str,
     project_name: str,

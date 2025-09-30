@@ -19,7 +19,6 @@ from aiohttp.web import (
 from aiohttp.web_urldispatcher import AbstractRoute
 from aiohttp_security import check_authorized
 from apolo_kube_client import KubeClient
-from apolo_kube_client.apolo import normalize_name
 from neuro_auth_client import (
     AuthClient,
     ClientSubTreeViewRoot,
@@ -37,14 +36,11 @@ from .config_factory import EnvironConfigFactory
 from .identity import untrusted_user
 from .project_deleter import ProjectDeleter
 from .service import (
-    NO_ORG,
-    NO_ORG_NORMALIZED,
     Secret,
     SecretNotFound,
     Service,
 )
 from .validators import (
-    org_project_required_validator,
     org_project_validator,
     secret_key_validator,
     secret_list_response_validator,
@@ -114,11 +110,8 @@ class SecretsApiHandler:
     def _get_org_secrets_uri(self, org_name: str) -> str:
         return f"{self._secret_cluster_uri}/{org_name}"
 
-    def _get_secrets_uri(self, project_name: str, org_name: str | None) -> str:
-        if org_name is None or org_name == normalize_name(NO_ORG):
-            base = self._secret_cluster_uri
-        else:
-            base = self._get_org_secrets_uri(org_name)
+    def _get_secrets_uri(self, project_name: str, org_name: str) -> str:
+        base = self._get_org_secrets_uri(org_name)
         return f"{base}/{project_name}"
 
     def _get_secret_uri(self, secret: Secret) -> str:
@@ -128,9 +121,7 @@ class SecretsApiHandler:
     def _get_secret_read_perm(self, secret: Secret) -> Permission:
         return Permission(self._get_secret_uri(secret), "read")
 
-    def _get_secrets_write_perm(
-        self, project_name: str, org_name: str | None
-    ) -> Permission:
+    def _get_secrets_write_perm(self, project_name: str, org_name: str) -> Permission:
         return Permission(self._get_secrets_uri(project_name, org_name), "write")
 
     def _convert_secret_to_payload(self, secret: Secret) -> dict[str, str | None]:
@@ -153,13 +144,12 @@ class SecretsApiHandler:
     async def handle_post(self, request: Request) -> Response:
         payload = await request.json()
         payload = secret_request_validator.check(payload)
-        org_name = payload.get("org_name")
+        org_name = payload["org_name"]
         project_name = payload["project_name"]
         await check_permissions(
             request,
             [self._get_secrets_write_perm(project_name, org_name)],
         )
-        org_name = org_name or normalize_name(NO_ORG)
         secret = Secret(
             key=payload["key"],
             value=payload["value"],
@@ -174,13 +164,11 @@ class SecretsApiHandler:
     async def handle_get_all(self, request: Request) -> Response:
         username = await check_authorized(request)
         payload = org_project_validator.check(request.query)
-        org_name = payload.get("org_name")
+        org_name = payload["org_name"]
         project_name = payload["project_name"]
         tree = await self._auth_client.get_permissions_tree(
             username, self._secret_cluster_uri
         )
-        if not org_name or normalize_name(org_name) == normalize_name(NO_ORG):
-            org_name = NO_ORG_NORMALIZED
 
         secrets = [
             secret
@@ -195,7 +183,7 @@ class SecretsApiHandler:
 
     async def handle_get(self, request: Request) -> Response:
         username = await check_authorized(request)
-        payload = org_project_required_validator.check(request.query)
+        payload = org_project_validator.check(request.query)
         org_name = payload["org_name"]
         project_name = payload["project_name"]
         secret_key = request.match_info["key"]
@@ -229,13 +217,12 @@ class SecretsApiHandler:
 
     async def handle_delete(self, request: Request) -> Response:
         payload = org_project_validator.check(request.query)
-        org_name = payload.get("org_name")
+        org_name = payload["org_name"]
         project_name = payload["project_name"]
         await check_permissions(
             request,
             [self._get_secrets_write_perm(project_name, org_name)],
         )
-        org_name = org_name or normalize_name(NO_ORG)
         secret_key = request.match_info["key"]
         secret_key = secret_key_validator.check(secret_key)
         secret = Secret(

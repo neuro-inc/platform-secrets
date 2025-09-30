@@ -18,7 +18,6 @@ from aiohttp.web_exceptions import (
 
 from platform_secrets.api import create_app
 from platform_secrets.config import Config
-from platform_secrets.service import NO_ORG_NORMALIZED
 
 from .conftest import ApiAddress, create_local_app_server, random_name
 from .conftest_auth import _User
@@ -111,12 +110,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
         user = await regular_user_factory(skip_grant=True)
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -128,12 +128,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -145,11 +146,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name=project_name)
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": org_name,
             "project_name": project_name,
         }
         async with client.post(
@@ -160,15 +163,15 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"org_name": "NO_ORG", "project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             assert resp_payload == [
                 {
                     "key": "kkkk",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 }
             ]
@@ -187,12 +190,15 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
-            "project_name": "test-project",
+            "org_name": org_name,
+            "project_name": project_name,
         }
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
@@ -202,23 +208,23 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": "test-project"},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
             assert resp_payload == [
                 {
                     "key": "kkkk",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
-                    "project_name": "test-project",
+                    "owner": project_name,
+                    "org_name": org_name,
+                    "project_name": project_name,
                 }
             ]
 
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": "other-project"},
+            params={"org_name": org_name, "project_name": "other-project"},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -229,10 +235,12 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         project_name: str,
+        org_name: str,
     ) -> None:
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
+            "org_name": org_name,
             "project_name": project_name,
         }
         async with client.post(secrets_api.endpoint, json=payload) as resp:
@@ -243,11 +251,14 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
     ) -> None:
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
-            "project_name": "test-project",
+            "org_name": org_name,
+            "project_name": project_name,
         }
         user = await regular_user_factory(skip_grant=True)
         async with client.post(
@@ -260,8 +271,10 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         async with client.post(secrets_api.endpoint, headers=user.headers) as resp:
             assert resp.status == HTTPBadRequest.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -273,8 +286,10 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         payload: dict[str, Any] = {}
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
@@ -290,100 +305,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
-            "project_name": project_name,
-        }
-        async with client.post(
-            secrets_api.endpoint, headers=user.headers, json=payload
-        ) as resp:
-            assert resp.status == HTTPCreated.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == {
-                "key": "kkkk",
-                "owner": "test-project",
-                "org_name": NO_ORG_NORMALIZED,
-                "project_name": project_name,
-            }
-
-        async with client.get(
-            secrets_api.endpoint,
-            headers=user.headers,
-            params={"project_name": project_name},
-        ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == [
-                {
-                    "key": "kkkk",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
-                    "project_name": project_name,
-                }
-            ]
-
-    async def test_post_secret_with_org(
-        self,
-        secrets_api: SecretsApiEndpoints,
-        client: aiohttp.ClientSession,
-        regular_user_factory: Callable[..., Awaitable[_User]],
-        project_name: str,
-    ) -> None:
-        user = await regular_user_factory(
-            org_name="test-org", project_name=project_name
-        )
-        payload: dict[str, Any] = {
-            "key": "kkkk",
-            "value": "vvvv",
-            "org_name": "test-org",
-            "project_name": project_name,
-        }
-        async with client.post(
-            secrets_api.endpoint, headers=user.headers, json=payload
-        ) as resp:
-            assert resp.status == HTTPCreated.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == {
-                "key": "kkkk",
-                "owner": "test-project",
-                "org_name": "test-org",
-                "project_name": project_name,
-            }
-
-        async with client.get(
-            secrets_api.endpoint,
-            headers=user.headers,
-            params={"org_name": "test-org", "project_name": project_name},
-        ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == [
-                {
-                    "key": "kkkk",
-                    "owner": "test-project",
-                    "org_name": "test-org",
-                    "project_name": project_name,
-                }
-            ]
-
-    async def test_post_secret_username_with_slash(
-        self,
-        secrets_api: SecretsApiEndpoints,
-        client: aiohttp.ClientSession,
-        regular_user_factory: Callable[..., Awaitable[_User]],
-        project_name: str,
-    ) -> None:
-        base_name = random_name()
-        await regular_user_factory(base_name, project_name=project_name)
-        user = await regular_user_factory(
-            f"{base_name}/something/more", project_name=project_name
-        )
-        payload: dict[str, Any] = {
-            "key": "kkkk",
-            "value": "vvvv",
+            "org_name": org_name,
             "project_name": project_name,
         }
         async with client.post(
@@ -394,14 +322,14 @@ class TestApi:
             assert resp_payload == {
                 "key": "kkkk",
                 "owner": project_name,
-                "org_name": NO_ORG_NORMALIZED,
+                "org_name": org_name,
                 "project_name": project_name,
             }
 
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -409,7 +337,101 @@ class TestApi:
                 {
                     "key": "kkkk",
                     "owner": project_name,
-                    "org_name": NO_ORG_NORMALIZED,
+                    "org_name": org_name,
+                    "project_name": project_name,
+                }
+            ]
+
+    async def test_post_secret_with_org(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
+    ) -> None:
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
+        payload: dict[str, Any] = {
+            "key": "kkkk",
+            "value": "vvvv",
+            "org_name": org_name,
+            "project_name": project_name,
+        }
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {
+                "key": "kkkk",
+                "owner": project_name,
+                "org_name": org_name,
+                "project_name": project_name,
+            }
+
+        async with client.get(
+            secrets_api.endpoint,
+            headers=user.headers,
+            params={"org_name": org_name, "project_name": project_name},
+        ) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == [
+                {
+                    "key": "kkkk",
+                    "owner": project_name,
+                    "org_name": org_name,
+                    "project_name": project_name,
+                }
+            ]
+
+    async def test_post_secret_username_with_slash(
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
+    ) -> None:
+        base_name = random_name()
+        await regular_user_factory(
+            base_name, org_name=org_name, project_name=project_name
+        )
+        user = await regular_user_factory(
+            f"{base_name}/something/more",
+            org_name=org_name,
+            project_name=project_name,
+        )
+        payload: dict[str, Any] = {
+            "key": "kkkk",
+            "value": "vvvv",
+            "org_name": org_name,
+            "project_name": project_name,
+        }
+        async with client.post(
+            secrets_api.endpoint, headers=user.headers, json=payload
+        ) as resp:
+            assert resp.status == HTTPCreated.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == {
+                "key": "kkkk",
+                "owner": project_name,
+                "org_name": org_name,
+                "project_name": project_name,
+            }
+
+        async with client.get(
+            secrets_api.endpoint,
+            headers=user.headers,
+            params={"org_name": org_name, "project_name": project_name},
+        ) as resp:
+            assert resp.status == HTTPOk.status_code, await resp.text()
+            resp_payload = await resp.json()
+            assert resp_payload == [
+                {
+                    "key": "kkkk",
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 }
             ]
@@ -420,12 +442,14 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name=project_name)
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
 
         payload: dict[str, Any] = {
             "key": "k1",
             "value": "vvvv",
+            "org_name": org_name,
             "project_name": project_name,
         }
         async with client.post(
@@ -435,15 +459,15 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": "test-project",
-                "org_name": NO_ORG_NORMALIZED,
+                "owner": project_name,
+                "org_name": org_name,
                 "project_name": project_name,
             }
 
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -451,13 +475,18 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 }
             ]
 
-        payload = {"key": "k2", "value": "vvvv", "project_name": project_name}
+        payload = {
+            "key": "k2",
+            "value": "vvvv",
+            "org_name": org_name,
+            "project_name": project_name,
+        }
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -465,15 +494,15 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k2",
-                "owner": "test-project",
-                "org_name": NO_ORG_NORMALIZED,
+                "owner": project_name,
+                "org_name": org_name,
                 "project_name": project_name,
             }
 
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -481,19 +510,24 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 },
                 {
                     "key": "k2",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 },
             ]
 
-        payload = {"key": "k1", "value": "rrrr", "project_name": project_name}
+        payload = {
+            "key": "k1",
+            "value": "rrrr",
+            "org_name": org_name,
+            "project_name": project_name,
+        }
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -501,12 +535,17 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": "test-project",
-                "org_name": NO_ORG_NORMALIZED,
+                "owner": project_name,
+                "org_name": org_name,
                 "project_name": project_name,
             }
 
-        payload = {"key": "k1", "value": "rrrr", "project_name": project_name}
+        payload = {
+            "key": "k1",
+            "value": "rrrr",
+            "org_name": org_name,
+            "project_name": project_name,
+        }
         async with client.post(
             secrets_api.endpoint, headers=user.headers, json=payload
         ) as resp:
@@ -514,15 +553,15 @@ class TestApi:
             resp_payload = await resp.json()
             assert resp_payload == {
                 "key": "k1",
-                "owner": "test-project",
-                "org_name": NO_ORG_NORMALIZED,
+                "owner": project_name,
+                "org_name": org_name,
                 "project_name": project_name,
             }
 
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -530,27 +569,29 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k1",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 },
                 {
                     "key": "k2",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 },
             ]
 
         async with client.delete(
-            secrets_api.endpoint + "/k1?project_name=test-project", headers=user.headers
+            secrets_api.endpoint + "/k1",
+            headers=user.headers,
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPNoContent.status_code, await resp.text()
 
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -558,21 +599,23 @@ class TestApi:
             assert resp_payload == [
                 {
                     "key": "k2",
-                    "owner": "test-project",
-                    "org_name": NO_ORG_NORMALIZED,
+                    "owner": project_name,
+                    "org_name": org_name,
                     "project_name": project_name,
                 },
             ]
 
         async with client.delete(
-            secrets_api.endpoint + "/k2?project_name=test-project", headers=user.headers
+            secrets_api.endpoint + "/k2",
+            headers=user.headers,
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPNoContent.status_code, await resp.text()
 
         async with client.get(
             secrets_api.endpoint,
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -584,9 +627,11 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         project_name: str,
+        org_name: str,
     ) -> None:
         async with client.delete(
-            secrets_api.endpoint + "/key", params={"project_name": project_name}
+            secrets_api.endpoint + "/key",
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPUnauthorized.status_code, await resp.text()
 
@@ -596,12 +641,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
         user = await regular_user_factory(skip_grant=True)
         async with client.delete(
             secrets_api.endpoint + "/key",
             headers=user.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPForbidden.status_code, await resp.text()
 
@@ -610,11 +656,14 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         async with client.delete(
-            secrets_api.endpoint + "/...?project_name=test-project",
+            secrets_api.endpoint + "/...",
             headers=user.headers,
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPBadRequest.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -626,11 +675,14 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
+        project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(project_name="test-project")
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         async with client.delete(
-            secrets_api.endpoint + "/unknown?project_name=test-project",
+            secrets_api.endpoint + "/unknown",
             headers=user.headers,
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPNotFound.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -643,13 +695,15 @@ class TestApi:
         regular_user_factory: Callable[..., Awaitable[_User]],
         share_secret: Callable[[str, str, str], Awaitable[None]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user1 = await regular_user_factory(project_name=project_name)
-        user2 = await regular_user_factory(project_name=project_name)
+        user1 = await regular_user_factory(org_name=org_name, project_name=project_name)
+        user2 = await regular_user_factory(org_name=org_name, project_name=project_name)
 
         payload: dict[str, Any] = {
             "key": "k1",
             "value": "vvvv",
+            "org_name": org_name,
             "project_name": project_name,
         }
         async with client.post(
@@ -660,14 +714,14 @@ class TestApi:
             assert resp_payload == {
                 "key": "k1",
                 "owner": project_name,
-                "org_name": NO_ORG_NORMALIZED,
+                "org_name": org_name,
                 "project_name": project_name,
             }
 
         async with client.get(
             secrets_api.endpoint,
             headers=user1.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -675,7 +729,7 @@ class TestApi:
                 {
                     "key": "k1",
                     "owner": project_name,
-                    "org_name": NO_ORG_NORMALIZED,
+                    "org_name": org_name,
                     "project_name": project_name,
                 },
             ]
@@ -683,7 +737,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint,
             headers=user2.headers,
-            params={"project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -691,7 +745,7 @@ class TestApi:
                 {
                     "key": "k1",
                     "owner": project_name,
-                    "org_name": NO_ORG_NORMALIZED,
+                    "org_name": org_name,
                     "project_name": project_name,
                 },
             ]
@@ -711,12 +765,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
         user = await regular_user_factory(skip_grant=True)
         async with client.get(
             secrets_api.endpoint + "/test-key",
             headers=user.headers,
-            params={"org_name": "test-org", "project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPForbidden.status_code, await resp.text()
 
@@ -726,14 +781,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(
-            org_name="test-org", project_name=project_name
-        )
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         async with client.get(
             secrets_api.endpoint + "/nonexistent-key",
             headers=user.headers,
-            params={"org_name": "test-org", "project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPNotFound.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -745,15 +799,14 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(
-            org_name="test-org", project_name=project_name
-        )
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
 
         payload: dict[str, Any] = {
             "key": "test-secret",
             "value": base64.b64encode(b"test-value").decode(),
-            "org_name": "test-org",
+            "org_name": org_name,
             "project_name": project_name,
         }
         async with client.post(
@@ -764,7 +817,7 @@ class TestApi:
         async with client.get(
             secrets_api.endpoint + "/test-secret",
             headers=user.headers,
-            params={"org_name": "test-org", "project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPOk.status_code, await resp.text()
             resp_payload = await resp.json()
@@ -772,7 +825,7 @@ class TestApi:
                 "key": "test-secret",
                 "value": base64.b64encode(b"test-value").decode(),
                 "owner": project_name,
-                "org_name": "test-org",
+                "org_name": org_name,
                 "project_name": project_name,
             }
 
@@ -782,14 +835,13 @@ class TestApi:
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
         project_name: str,
+        org_name: str,
     ) -> None:
-        user = await regular_user_factory(
-            org_name="test-org", project_name=project_name
-        )
+        user = await regular_user_factory(org_name=org_name, project_name=project_name)
         async with client.get(
             secrets_api.endpoint + "/...",
             headers=user.headers,
-            params={"org_name": "test-org", "project_name": project_name},
+            params={"org_name": org_name, "project_name": project_name},
         ) as resp:
             assert resp.status == HTTPBadRequest.status_code, await resp.text()
             resp_payload = await resp.json()
