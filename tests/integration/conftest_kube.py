@@ -5,11 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from apolo_kube_client import KubeClient, KubeClientAuthType, KubeConfig
-from apolo_kube_client.apolo import generate_namespace_name
+from apolo_kube_client import KubeClientAuthType, KubeConfig, KubeClientSelector
 from kubernetes.client import V1Secret, V1SecretList
-
-# from platform_secrets.config import KubeConfig
 
 
 @pytest.fixture
@@ -78,25 +75,26 @@ async def kube_config(
 
 
 @pytest.fixture(autouse=True)
-async def kube_client(
+async def kube_selector(
     kube_config: KubeConfig,
     org_name: str,
     project_name: str,
-) -> AsyncIterator[KubeClient]:
-    async def _drop_all_secrets(kube_client: KubeClient) -> None:
-        namespace_name = generate_namespace_name(org_name, project_name)
-        secret_list: V1SecretList = await kube_client.core_v1.secret.get_list(
-            namespace=namespace_name
-        )
-        secret: V1Secret
-        for secret in secret_list.items:
-            secret_name: str = secret.metadata.name
-            if secret_name.startswith("user--") or secret_name.startswith("project--"):
-                await kube_client.core_v1.secret.delete(
-                    secret_name, namespace=namespace_name
-                )
+) -> AsyncIterator[KubeClientSelector]:
+    async def _drop_all_secrets(kube_client_selector: KubeClientSelector) -> None:
+        async with kube_client_selector.get_client(
+            org_name=org_name,
+            project_name=project_name,
+        ) as kube_client:
+            secret_list: V1SecretList = await kube_client.core_v1.secret.get_list()
+            secret: V1Secret
+            for secret in secret_list.items:
+                secret_name: str = secret.metadata.name
+                if secret_name.startswith("user--") or secret_name.startswith(
+                    "project--"
+                ):
+                    await kube_client.core_v1.secret.delete(secret_name)
 
-    async with KubeClient(config=kube_config) as kube_client:
-        await _drop_all_secrets(kube_client)
-        yield kube_client
-        await _drop_all_secrets(kube_client)
+    async with KubeClientSelector(config=kube_config) as kube_client_selector:
+        await _drop_all_secrets(kube_client_selector)
+        yield kube_client_selector
+        await _drop_all_secrets(kube_client_selector)

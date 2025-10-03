@@ -5,13 +5,12 @@ import re
 from dataclasses import dataclass, field
 
 from apolo_kube_client import (
-    KubeClient,
     ResourceBadRequest,
     ResourceInvalid,
     ResourceNotFound,
+    KubeClientSelector,
 )
 from apolo_kube_client.apolo import (
-    create_namespace,
     generate_namespace_name,
 )
 from kubernetes.client import V1SecretList
@@ -60,8 +59,8 @@ class Secret:
 
 
 class Service:
-    def __init__(self, kube_client: KubeClient) -> None:
-        self._kube_client = kube_client
+    def __init__(self, kube_client_selector: KubeClientSelector) -> None:
+        self._kube_client_selector = kube_client_selector
 
     def _get_kube_secret_name(self, project_name: str, org_name: str) -> str:
         path = f"{org_name}/{project_name}"
@@ -80,56 +79,55 @@ class Service:
 
     async def add_secret(self, secret: Secret, encode: bool = False) -> None:
         secret_name = self._get_kube_secret_name(secret.project_name, secret.org_name)
-        namespace = await create_namespace(
-            self._kube_client, secret.org_name, secret.project_name
-        )
-        try:
+        async with self._kube_client_selector.get_client(
+            org_name=secret.org_name, project_name=secret.project_name
+        ) as kube_client:
             try:
-                await self._kube_client.core_v1.secret.add_key(
-                    secret_name,
-                    secret.key,
-                    secret.value,
-                    encode=encode,
-                    namespace=namespace.metadata.name,
-                )
-            except ResourceNotFound:
-                labels = {SECRET_API_ORG_LABEL: secret.org_name}
-                await self._kube_client.core_v1.secret.create(
-                    model=V1Secret(
-                        api_version="v1",
-                        kind="Secret",
-                        metadata=V1ObjectMeta(name=secret_name, labels=labels),
-                        data={secret.key: secret.value},
-                        type="Opaque",
-                    ),
-                    namespace=namespace.metadata.name,
-                )
-        except (ResourceInvalid, ResourceBadRequest):
-            logger.exception(f"Failed to add/replace secret key {secret.key!r}")
-            raise ValueError(f"Secret key {secret.key!r} or its value not valid")
+                try:
+                    await kube_client.core_v1.secret.add_key(
+                        secret_name,
+                        secret.key,
+                        secret.value,
+                        encode=encode,
+                    )
+                except ResourceNotFound:
+                    labels = {SECRET_API_ORG_LABEL: secret.org_name}
+                    await kube_client.core_v1.secret.create(
+                        model=V1Secret(
+                            api_version="v1",
+                            kind="Secret",
+                            metadata=V1ObjectMeta(name=secret_name, labels=labels),
+                            data={secret.key: secret.value},
+                            type="Opaque",
+                        ),
+                    )
+            except (ResourceInvalid, ResourceBadRequest):
+                logger.exception(f"Failed to add/replace secret key {secret.key!r}")
+                raise ValueError(f"Secret key {secret.key!r} or its value not valid")
 
     async def remove_secret(self, secret: Secret) -> None:
-        try:
-            secret_name = self._get_kube_secret_name(
-                secret.project_name, secret.org_name
-            )
-            await self._kube_client.core_v1.secret.delete_key(
-                secret_name, secret.key, namespace=secret.namespace_name
-            )
-        except (ResourceNotFound, ResourceInvalid):
-            raise SecretNotFound.create(secret.key)
+        async with self._kube_client_selector.get_client(
+            org_name=secret.org_name, project_name=secret.project_name
+        ) as kube_client:
+            try:
+                secret_name = self._get_kube_secret_name(
+                    secret.project_name, secret.org_name
+                )
+                await kube_client.core_v1.secret.delete_key(secret_name, secret.key)
+            except (ResourceNotFound, ResourceInvalid):
+                raise SecretNotFound.create(secret.key)
 
     async def get_secret(self, secret: Secret) -> Secret:
         try:
             secret_name = self._get_kube_secret_name(
                 secret.project_name, secret.org_name
             )
-            namespace_name = generate_namespace_name(
-                secret.org_name, secret.project_name
-            )
-            kube_secret: V1Secret = await self._kube_client.core_v1.secret.get(
-                secret_name, namespace=namespace_name
-            )
+            async with self._kube_client_selector.get_client(
+                org_name=secret.org_name, project_name=secret.project_name
+            ) as kube_client:
+                kube_secret: V1Secret = await kube_client.core_v1.secret.get(
+                    secret_name
+                )
             if not kube_secret.data or secret.key not in kube_secret.data:
                 raise SecretNotFound.create(secret.key)
 
@@ -150,11 +148,13 @@ class Service:
         project_name: str,
         with_values: bool = False,
     ) -> list[Secret]:
-        namespace = await create_namespace(self._kube_client, org_name, project_name)
         label_selector = f"{SECRET_API_ORG_LABEL}={org_name}"
-        secret_list: V1SecretList = await self._kube_client.core_v1.secret.get_list(
-            label_selector=label_selector, namespace=namespace.metadata.name
-        )
+        async with self._kube_client_selector.get_client(
+            org_name=org_name, project_name=project_name
+        ) as kube_client:
+            secret_list: V1SecretList = await kube_client.core_v1.secret.get_list(
+                label_selector=label_selector
+            )
         result = []
         secret: V1Secret
         for secret in secret_list.items:
@@ -180,17 +180,18 @@ class Service:
         self, org_name: str, project_name: str
     ) -> None:
         kube_secret_name = self._get_kube_secret_name(project_name, org_name)
-        namespace_name = generate_namespace_name(org_name, project_name)
 
         try:
-            await self._kube_client.core_v1.secret.delete(
-                kube_secret_name, namespace=namespace_name
-            )
+            async with self._kube_client_selector.get_client(
+                org_name=org_name, project_name=project_name
+            ) as kube_client:
+                await kube_client.core_v1.secret.delete(kube_secret_name)
             logger.info(
                 f"Deleted K8s secret {kube_secret_name!r} for project {project_name!r} "
-                f"from namespace {namespace_name!r}"
+                f"in org {org_name!r}"
             )
         except ResourceNotFound:
             logger.debug(
-                f"K8s secret {kube_secret_name!r} not found in namespace {namespace_name!r}"
+                f"secret {kube_secret_name!r} not found for project {project_name!r} "
+                f"in org {org_name!r}"
             )

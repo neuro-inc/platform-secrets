@@ -4,9 +4,8 @@ import base64
 from uuid import uuid4
 
 import pytest
-from apolo_kube_client import KubeClient
+from apolo_kube_client import KubeClientSelector
 from apolo_kube_client.apolo import generate_namespace_name
-from kubernetes.client import V1SecretList
 
 from platform_secrets.service import (
     Secret,
@@ -17,8 +16,8 @@ from platform_secrets.service import (
 
 class TestService:
     @pytest.fixture
-    def service(self, kube_client: KubeClient) -> Service:
-        return Service(kube_client=kube_client)
+    def service(self, kube_selector: KubeClientSelector) -> Service:
+        return Service(kube_client_selector=kube_selector)
 
     @pytest.mark.parametrize("key", ["!@#", ".", "..", "...", " ", "\n", "\t", ""])
     async def test_add_secret_invalid_key(
@@ -38,32 +37,37 @@ class TestService:
     async def test_add_secret_valid_key(
         self,
         service: Service,
-        kube_client: KubeClient,
+        kube_selector: KubeClientSelector,
         org_name: str,
         project_name: str,
         key: str,
     ) -> None:
         # ensure that currently the expected namespace doesn't have any secrets
-        namespace_name = generate_namespace_name(org_name, project_name)
-        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(
-            namespace=namespace_name
-        )
-        assert len(namespace_secrets.items) == 0
-
+        generate_namespace_name(org_name, project_name)
         secret = Secret(
             key, org_name, project_name, base64.b64encode(b"testvalue").decode()
         )
-        await service.add_secret(secret)
-
-        # ensure that secrets were created in a proper namespace
-        namespace_secrets: V1SecretList = await kube_client.core_v1.secret.get_list(  # type: ignore
-            namespace=namespace_name
-        )
-        assert len(namespace_secrets.items) == 1
         expected_secret_name = (
             f"project--{secret.org_name}--{secret.project_name}--secrets"
         )
-        assert namespace_secrets.items[0].metadata.name == expected_secret_name
+        async with kube_selector.get_client(
+            org_name=org_name, project_name=project_name
+        ) as kube_client:
+            namespace_secrets = await kube_client.core_v1.secret.get_list()
+
+        actual_secret_names = {x.metadata.name for x in namespace_secrets.items}
+        assert expected_secret_name not in actual_secret_names
+
+        await service.add_secret(secret)
+
+        # ensure that secrets were created in a proper namespace
+        async with kube_selector.get_client(
+            org_name=org_name, project_name=project_name
+        ) as kube_client:
+            namespace_secrets = await kube_client.core_v1.secret.get_list()
+
+        actual_secret_names = {x.metadata.name for x in namespace_secrets.items}
+        assert expected_secret_name in actual_secret_names
 
     @pytest.mark.parametrize("key", ["-", "_", ".-", "0"])
     async def test_with_org(
