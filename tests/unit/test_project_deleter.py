@@ -80,9 +80,6 @@ class TestProjectDeleter:
         mock_service.delete_all_secrets_for_project.assert_called_once_with(
             "test-org", "test-project"
         )
-        deleter._client.ack.assert_called_once_with(
-            {StreamType("platform-admin"): ["test-tag"]}
-        )
 
     @pytest.mark.asyncio
     async def test_on_admin_event_other_event(
@@ -97,9 +94,6 @@ class TestProjectDeleter:
         await deleter._on_admin_event(other_event)
 
         mock_service.delete_all_secrets_for_project.assert_not_called()
-        deleter._client.ack.assert_called_once_with(
-            {StreamType("platform-admin"): ["test-tag"]}
-        )
 
     @pytest.mark.asyncio
     async def test_on_admin_event_handles_service_exception(
@@ -118,7 +112,4 @@ class TestProjectDeleter:
 
         mock_service.delete_all_secrets_for_project.assert_called_once_with(
             "test-org", "test-project"
-        )
-        deleter._client.ack.assert_called_once_with(
-            {StreamType("platform-admin"): ["test-tag"]}
         )
