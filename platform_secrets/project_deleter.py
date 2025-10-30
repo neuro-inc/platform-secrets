@@ -28,7 +28,9 @@ class ProjectDeleter:
 
     async def __aenter__(self) -> Self:
         await self._client.__aenter__()
-        await self._client.subscribe_group(self.ADMIN_STREAM, self._on_admin_event)
+        await self._client.subscribe_group(
+            self.ADMIN_STREAM, self._on_admin_event, auto_ack=True
+        )
         return self
 
     async def __aexit__(self, exc_typ: object, exc_val: object, exc_tb: object) -> None:
@@ -36,12 +38,7 @@ class ProjectDeleter:
 
     async def _on_admin_event(self, ev: RecvEvent) -> None:
         if ev.event_type == self.PROJECT_REMOVE:
-            try:
-                await self._process_project_deletion(ev)
-            except Exception:
-                logger.exception("Error in _on_admin_event")
-
-        await self._client.ack({self.ADMIN_STREAM: [ev.tag]})
+            await self._process_project_deletion(ev)
 
     async def _process_project_deletion(self, ev: RecvEvent) -> None:
         cluster = ev.cluster
