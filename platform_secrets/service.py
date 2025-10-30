@@ -13,8 +13,8 @@ from apolo_kube_client import (
 from apolo_kube_client.apolo import (
     generate_namespace_name,
 )
-from kubernetes.client import V1SecretList
-from kubernetes.client.models import V1ObjectMeta, V1Secret
+from apolo_kube_client import V1SecretList
+from apolo_kube_client import V1ObjectMeta, V1Secret
 
 logger = logging.getLogger()
 
@@ -158,6 +158,7 @@ class Service:
         result = []
         secret: V1Secret
         for secret in secret_list.items:
+            assert secret.metadata.name is not None
             secret_project_name = self._get_project_name_from_secret_name(
                 secret.metadata.name, org_name
             )

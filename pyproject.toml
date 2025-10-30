@@ -24,7 +24,7 @@ multidict = "6.7.0"
 neuro-auth-client = "25.8.2"
 trafaret = "2.1.1"
 neuro-logging = "25.10.0"
-apolo-kube-client = "25.10.8"
+apolo-kube-client = "^25.10.13"
 apolo-events-client = "25.7.7"
 
 [tool.poetry.scripts]
@@ -107,8 +107,4 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "trafaret"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "kubernetes.*"
 ignore_missing_imports = true

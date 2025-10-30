@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from apolo_kube_client import KubeClientAuthType, KubeConfig, KubeClientSelector
-from kubernetes.client import V1Secret, V1SecretList
+from apolo_kube_client import V1Secret, V1SecretList
 
 
 @pytest.fixture
@@ -88,7 +88,8 @@ async def kube_selector(
             secret_list: V1SecretList = await kube_client.core_v1.secret.get_list()
             secret: V1Secret
             for secret in secret_list.items:
-                secret_name: str = secret.metadata.name
+                assert secret.metadata.name is not None
+                secret_name = secret.metadata.name
                 if secret_name.startswith("user--") or secret_name.startswith(
                     "project--"
                 ):
