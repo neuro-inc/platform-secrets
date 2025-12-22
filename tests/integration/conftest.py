@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 pytest_plugins = [
     "tests.integration.conftest_auth",
     "tests.integration.conftest_kube",
+    "tests.integration.conftest_clusters",
 ]
 
 

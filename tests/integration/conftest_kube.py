@@ -10,13 +10,15 @@ from apolo_kube_client import V1Secret, V1SecretList
 
 
 @pytest.fixture
-def org_name() -> str:
-    return "test-org"
+def org_name(org_project: tuple[str, str]) -> str:
+    org, _ = org_project
+    return org
 
 
 @pytest.fixture
-def project_name() -> str:
-    return "test-project"
+def project_name(org_project: tuple[str, str]) -> str:
+    _, project = org_project
+    return project
 
 
 @pytest.fixture(scope="session")
@@ -55,7 +57,7 @@ def cert_authority_data_pem(
     return None
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 async def kube_config(
     kube_config_cluster_payload: dict[str, Any],
     kube_config_user_payload: dict[str, Any],
