@@ -19,8 +19,8 @@ from aiohttp.web_exceptions import (
 from platform_secrets.api import create_app
 from platform_secrets.config import Config
 
-from .conftest import ApiAddress, create_local_app_server, random_name
-from .conftest_auth import _User
+from .conftest import ApiAddress, create_local_app_server
+from .conftest_admin import _User
 
 
 @dataclass(frozen=True)
@@ -99,9 +99,16 @@ class TestApi:
             assert resp.status == HTTPUnauthorized.status_code
 
     async def test_get_secrets__unauthorized(
-        self, secrets_api: SecretsApiEndpoints, client: aiohttp.ClientSession
+        self,
+        secrets_api: SecretsApiEndpoints,
+        client: aiohttp.ClientSession,
+        org_name: str,
+        project_name: str,
     ) -> None:
-        async with client.get(secrets_api.endpoint) as resp:
+        async with client.get(
+            secrets_api.endpoint,
+            params={"org_name": org_name, "project_name": project_name},
+        ) as resp:
             assert resp.status == HTTPUnauthorized.status_code, await resp.text()
 
     async def test_get_secrets__no_permissions(
@@ -118,9 +125,7 @@ class TestApi:
             headers=user.headers,
             params={"org_name": org_name, "project_name": project_name},
         ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == []
+            assert resp.status == HTTPForbidden.status_code, await resp.text()
 
     async def test_get_secrets__none(
         self,
@@ -181,9 +186,7 @@ class TestApi:
             headers=user.headers,
             params={"org_name": "other-org", "project_name": project_name},
         ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == []
+            assert resp.status == HTTPForbidden.status_code, await resp.text()
 
     async def test_get_secrets__with_project_filter(
         self,
@@ -226,9 +229,7 @@ class TestApi:
             headers=user.headers,
             params={"org_name": org_name, "project_name": "other-project"},
         ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == []
+            assert resp.status == HTTPForbidden.status_code, await resp.text()
 
     async def test_post_secret__unauthorized(
         self,
@@ -351,57 +352,6 @@ class TestApi:
         org_name: str,
     ) -> None:
         user = await regular_user_factory(org_name=org_name, project_name=project_name)
-        payload: dict[str, Any] = {
-            "key": "kkkk",
-            "value": "vvvv",
-            "org_name": org_name,
-            "project_name": project_name,
-        }
-        async with client.post(
-            secrets_api.endpoint, headers=user.headers, json=payload
-        ) as resp:
-            assert resp.status == HTTPCreated.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == {
-                "key": "kkkk",
-                "owner": project_name,
-                "org_name": org_name,
-                "project_name": project_name,
-            }
-
-        async with client.get(
-            secrets_api.endpoint,
-            headers=user.headers,
-            params={"org_name": org_name, "project_name": project_name},
-        ) as resp:
-            assert resp.status == HTTPOk.status_code, await resp.text()
-            resp_payload = await resp.json()
-            assert resp_payload == [
-                {
-                    "key": "kkkk",
-                    "owner": project_name,
-                    "org_name": org_name,
-                    "project_name": project_name,
-                }
-            ]
-
-    async def test_post_secret_username_with_slash(
-        self,
-        secrets_api: SecretsApiEndpoints,
-        client: aiohttp.ClientSession,
-        regular_user_factory: Callable[..., Awaitable[_User]],
-        project_name: str,
-        org_name: str,
-    ) -> None:
-        base_name = random_name()
-        await regular_user_factory(
-            base_name, org_name=org_name, project_name=project_name
-        )
-        user = await regular_user_factory(
-            f"{base_name}/something/more",
-            org_name=org_name,
-            project_name=project_name,
-        )
         payload: dict[str, Any] = {
             "key": "kkkk",
             "value": "vvvv",
@@ -693,7 +643,6 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         regular_user_factory: Callable[..., Awaitable[_User]],
-        share_secret: Callable[[str, str, str], Awaitable[None]],
         project_name: str,
         org_name: str,
     ) -> None:
@@ -755,8 +704,12 @@ class TestApi:
         secrets_api: SecretsApiEndpoints,
         client: aiohttp.ClientSession,
         project_name: str,
+        org_name: str,
     ) -> None:
-        async with client.get(secrets_api.endpoint + "/test-key") as resp:
+        async with client.get(
+            secrets_api.endpoint + "/test-key",
+            params={"org_name": org_name, "project_name": project_name},
+        ) as resp:
             assert resp.status == HTTPUnauthorized.status_code, await resp.text()
 
     async def test_get_secret__no_permissions(

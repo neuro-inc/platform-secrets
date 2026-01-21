@@ -19,21 +19,17 @@ from aiohttp.web import (
 from aiohttp.web_urldispatcher import AbstractRoute
 from aiohttp_security import check_authorized
 from apolo_kube_client import KubeClientSelector
-from neuro_auth_client import (
+from neuro_admin_client.auth_client import (
     AuthClient,
-    ClientSubTreeViewRoot,
     Permission,
-    User,
-    check_permissions,
 )
-from neuro_auth_client.security import AuthScheme, setup_security
+from neuro_admin_client.security import AuthScheme, check_permissions, setup_security
 from neuro_logging import init_logging, setup_sentry
 
 from platform_secrets import __version__
 
 from .config import Config
 from .config_factory import EnvironConfigFactory
-from .identity import untrusted_user
 from .project_deleter import ProjectDeleter
 from .service import (
     Secret,
@@ -99,10 +95,6 @@ class SecretsApiHandler:
     def _auth_client(self) -> AuthClient:
         return self._app[AUTH_CLIENT_KEY]
 
-    async def _get_untrusted_user(self, request: Request) -> User:
-        identity = await untrusted_user(request)
-        return User(name=identity.name)
-
     @property
     def _secret_cluster_uri(self) -> str:
         return f"secret://{self._config.cluster_name}"
@@ -124,6 +116,9 @@ class SecretsApiHandler:
     def _get_secrets_write_perm(self, project_name: str, org_name: str) -> Permission:
         return Permission(self._get_secrets_uri(project_name, org_name), "write")
 
+    def _get_secrets_read_perm(self, project_name: str, org_name: str) -> Permission:
+        return Permission(self._get_secrets_uri(project_name, org_name), "read")
+
     def _convert_secret_to_payload(self, secret: Secret) -> dict[str, str | None]:
         return {
             "key": secret.key,
@@ -136,12 +131,8 @@ class SecretsApiHandler:
             "owner": secret.project_name,
         }
 
-    def _check_secret_read_perm(
-        self, secret: Secret, tree: ClientSubTreeViewRoot
-    ) -> bool:
-        return tree.allows(self._get_secret_read_perm(secret))
-
     async def handle_post(self, request: Request) -> Response:
+        await check_authorized(request)
         payload = await request.json()
         payload = secret_request_validator.check(payload)
         org_name = payload["org_name"]
@@ -162,27 +153,23 @@ class SecretsApiHandler:
         return json_response(resp_payload, status=HTTPCreated.status_code)
 
     async def handle_get_all(self, request: Request) -> Response:
-        username = await check_authorized(request)
+        await check_authorized(request)
         payload = org_project_validator.check(request.query)
         org_name = payload["org_name"]
         project_name = payload["project_name"]
-        tree = await self._auth_client.get_permissions_tree(
-            username, self._secret_cluster_uri
+        await check_permissions(
+            request,
+            [self._get_secrets_read_perm(project_name, org_name)],
         )
-
-        secrets = [
-            secret
-            for secret in await self._service.get_all_secrets(
-                org_name=org_name, project_name=project_name
-            )
-            if self._check_secret_read_perm(secret, tree)
-        ]
+        secrets = await self._service.get_all_secrets(
+            org_name=org_name, project_name=project_name
+        )
         resp_payload = [self._convert_secret_to_payload(secret) for secret in secrets]
         resp_payload = secret_list_response_validator.check(resp_payload)
         return json_response(resp_payload)
 
     async def handle_get(self, request: Request) -> Response:
-        username = await check_authorized(request)
+        await check_authorized(request)
         payload = org_project_validator.check(request.query)
         org_name = payload["org_name"]
         project_name = payload["project_name"]
@@ -195,14 +182,10 @@ class SecretsApiHandler:
             project_name=project_name,
         )
 
-        tree = await self._auth_client.get_permissions_tree(
-            username, self._secret_cluster_uri
+        await check_permissions(
+            request,
+            [self._get_secret_read_perm(secret)],
         )
-        if not self._check_secret_read_perm(secret, tree):
-            await check_permissions(
-                request,
-                [self._get_secret_read_perm(secret)],
-            )
 
         try:
             secret = await self._service.get_secret(secret)
@@ -216,6 +199,7 @@ class SecretsApiHandler:
         return json_response(resp_payload)
 
     async def handle_delete(self, request: Request) -> Response:
+        await check_authorized(request)
         payload = org_project_validator.check(request.query)
         org_name = payload["org_name"]
         project_name = payload["project_name"]
@@ -247,6 +231,13 @@ async def handle_exceptions(
     except ValueError as e:
         payload = {"error": str(e)}
         return json_response(payload, status=HTTPBadRequest.status_code)
+    except RuntimeError as e:
+        # check_permissions raises RuntimeError when user lacks permissions
+        # (wraps 403 Forbidden from platform-admin)
+        error_str = str(e)
+        if "403" in error_str or "Forbidden" in error_str:
+            raise aiohttp.web.HTTPForbidden()
+        raise
     except aiohttp.web.HTTPException:
         raise
     except Exception as e:

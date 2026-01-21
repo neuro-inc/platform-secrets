@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 pytest_plugins = [
-    "tests.integration.conftest_auth",
+    "tests.integration.conftest_admin",
     "tests.integration.conftest_kube",
 ]
 
@@ -109,6 +109,6 @@ def get_service_url(service_name: str, namespace: str = "default") -> str:
     pytest.fail(f"Service {service_name} is unavailable.")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def cluster_name() -> str:
     return "test-cluster"
