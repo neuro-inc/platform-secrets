@@ -21,11 +21,11 @@ python = ">=3.13,<4.0"
 aiohttp = "3.13.3"
 yarl = "1.22.0"
 multidict = "6.7.0"
-neuro-auth-client = "25.8.2"
 trafaret = "2.1.1"
 neuro-logging = "25.11.0"
 apolo-kube-client = "^25.11.10"
 apolo-events-client = "25.10.0"
+neuro-admin-client = "^25.12.0"
 
 [tool.poetry.scripts]
 platform-secrets = "platform_secrets.api:main"
