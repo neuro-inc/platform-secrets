@@ -1814,14 +1814,14 @@ files = [
 
 [[package]]
 name = "pydantic"
-version = "2.13.0b1"
+version = "2.13.0b2"
 description = "Data validation using Python type hints"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "pydantic-2.13.0b1-py3-none-any.whl", hash = "sha256:4217dd70afa2bf63295996acfe9133ccd5b767eaf1c3dd8e0c5d4ea58293d26f"},
-    {file = "pydantic-2.13.0b1.tar.gz", hash = "sha256:4d2b645d6e7173e5c6e1fb7f9875caea8f186580e4ca0cb515a85f38151776d0"},
+    {file = "pydantic-2.13.0b2-py3-none-any.whl", hash = "sha256:42a3dee97ad2b50b7489ad4fe8dfec509cb613487da9a3c19d480f0880e223bc"},
+    {file = "pydantic-2.13.0b2.tar.gz", hash = "sha256:255b95518090cd7090b605ef975957b07f724778f71dafc850a7442e088e7b99"},
 ]
 
 [package.dependencies]
