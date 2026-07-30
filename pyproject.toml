@@ -24,7 +24,7 @@ multidict = "6.7.1"
 neuro-auth-client = "25.8.2"
 trafaret = "2.1.1"
 neuro-logging = "25.11.0"
-apolo-kube-client = "^25.11.10"
+apolo-kube-client = "^25.12.2"
 apolo-events-client = "26.7.1"
 
 [tool.poetry.scripts]
