@@ -2,8 +2,8 @@ import logging
 from typing import Self
 
 from apolo_events_client import (
-    EventType,
     EventsClientConfig,
+    EventType,
     RecvEvent,
     StreamType,
     from_config,
