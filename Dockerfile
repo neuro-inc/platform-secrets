@@ -1,6 +1,6 @@
 ARG PY_VERSION=3.13
 
-FROM python:${PY_VERSION}-slim-bullseye AS builder
+FROM python:${PY_VERSION}-slim-bookworm AS builder
 
 ENV PATH=/root/.local/bin:$PATH
 
@@ -14,7 +14,7 @@ COPY dist /tmp/dist/
 RUN pip install --user --no-cache-dir --find-links /tmp/dist platform-secrets \
     && rm -rf /tmp/dist
 
-FROM python:${PY_VERSION}-slim-bullseye as service
+FROM python:${PY_VERSION}-slim-bookworm as service
 LABEL org.opencontainers.image.source="https://github.com/neuro-inc/platform-secrets"
 
 WORKDIR /app
