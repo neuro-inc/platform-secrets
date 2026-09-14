@@ -5,8 +5,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from apolo_kube_client import KubeClientAuthType, KubeConfig, KubeClientSelector
-from apolo_kube_client import V1Secret, V1SecretList
+from apolo_kube_client import (
+    KubeClientAuthType,
+    KubeClientSelector,
+    KubeConfig,
+    V1Secret,
+    V1SecretList,
+)
 
 
 @pytest.fixture
