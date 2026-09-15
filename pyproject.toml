@@ -23,7 +23,7 @@ yarl = "1.24.5"
 multidict = "6.8.0"
 neuro-auth-client = "25.8.2"
 trafaret = "2.1.1"
-neuro-logging = "25.11.0"
+neuro-logging = ">=26.9,<27.0"
 apolo-kube-client = ">=25.12,<27.0"
 apolo-events-client = "26.7.1"
 
