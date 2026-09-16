@@ -72,6 +72,9 @@ filterwarnings = [
 branch = true
 source = ["platform_secrets"]
 
+[tool.ruff.lint]
+extend-select = ["UP006", "UP035"]
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_any_generics = true
