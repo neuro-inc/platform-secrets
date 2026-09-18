@@ -33,7 +33,7 @@ class EnvironConfigFactory:
             platform_auth=self._create_platform_auth(),
             kube=self._create_kube(),
             cluster_name=cluster_name,
-            events=self._create_events(),
+            events=self._create_events(cluster_name),
         )
 
     def _create_server(self) -> ServerConfig:
@@ -79,12 +79,15 @@ class EnvironConfigFactory:
             ),
         )
 
-    def _create_events(self) -> EventsClientConfig | None:
+    def _create_events(self, cluster_name: str) -> EventsClientConfig | None:
         events_url = self._environ.get("PLATFORM_EVENTS_URL")
         if not events_url:
             return None
+        if not cluster_name:
+            msg = "NP_CLUSTER_NAME is required when PLATFORM_EVENTS_URL is set"
+            raise ValueError(msg)
         return EventsClientConfig(
             url=URL(events_url),
             token=self._environ["PLATFORM_EVENTS_TOKEN"],
-            name="platform-secrets",
+            name=f"platform-secrets-{cluster_name}",
         )

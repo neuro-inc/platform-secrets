@@ -295,7 +295,7 @@ async def create_app(config: Config) -> aiohttp.web.Application:
             if config.events:
                 logger.info("Initializing ProjectDeleter")
                 await exit_stack.enter_async_context(
-                    ProjectDeleter(config.events, service)
+                    ProjectDeleter(config.events, service, config.cluster_name)
                 )
 
             yield

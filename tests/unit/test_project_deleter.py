@@ -19,7 +19,7 @@ def events_config() -> EventsClientConfig:
     return EventsClientConfig(
         url=URL("http://platform-events:8080/apis/events"),
         token="test-token",
-        name="platform-secrets",
+        name="platform-secrets-test-cluster",
     )
 
 
@@ -57,11 +57,11 @@ class TestProjectDeleter:
         mock_service: Mock,
         project_remove_event: RecvEvent,
     ) -> None:
-        deleter = ProjectDeleter(events_config, mock_service)
+        deleter = ProjectDeleter(events_config, mock_service, "test-cluster")
 
         await deleter._process_project_deletion(project_remove_event)
 
-        mock_service.delete_all_secrets_for_project.assert_called_once_with(
+        mock_service.delete_all_secrets_for_project.assert_awaited_once_with(
             "test-org", "test-project"
         )
 
@@ -72,12 +72,12 @@ class TestProjectDeleter:
         mock_service: Mock,
         project_remove_event: RecvEvent,
     ) -> None:
-        deleter = ProjectDeleter(events_config, mock_service)
+        deleter = ProjectDeleter(events_config, mock_service, "test-cluster")
         deleter._client = AsyncMock()
 
         await deleter._on_admin_event(project_remove_event)
 
-        mock_service.delete_all_secrets_for_project.assert_called_once_with(
+        mock_service.delete_all_secrets_for_project.assert_awaited_once_with(
             "test-org", "test-project"
         )
 
@@ -88,12 +88,12 @@ class TestProjectDeleter:
         mock_service: Mock,
         other_event: RecvEvent,
     ) -> None:
-        deleter = ProjectDeleter(events_config, mock_service)
+        deleter = ProjectDeleter(events_config, mock_service, "test-cluster")
         deleter._client = AsyncMock()
 
         await deleter._on_admin_event(other_event)
 
-        mock_service.delete_all_secrets_for_project.assert_not_called()
+        mock_service.delete_all_secrets_for_project.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_on_admin_event_handles_service_exception(
@@ -102,7 +102,7 @@ class TestProjectDeleter:
         mock_service: Mock,
         project_remove_event: RecvEvent,
     ) -> None:
-        deleter = ProjectDeleter(events_config, mock_service)
+        deleter = ProjectDeleter(events_config, mock_service, "test-cluster")
         deleter._client = AsyncMock()
         mock_service.delete_all_secrets_for_project.side_effect = Exception(
             "Service error"
@@ -110,6 +110,20 @@ class TestProjectDeleter:
 
         await deleter._on_admin_event(project_remove_event)
 
-        mock_service.delete_all_secrets_for_project.assert_called_once_with(
+        mock_service.delete_all_secrets_for_project.assert_awaited_once_with(
             "test-org", "test-project"
         )
+
+    @pytest.mark.asyncio
+    async def test_ignores_project_of_other_cluster(
+        self,
+        events_config: EventsClientConfig,
+        mock_service: Mock,
+        project_remove_event: RecvEvent,
+    ) -> None:
+        deleter = ProjectDeleter(events_config, mock_service, "other-cluster")
+        deleter._client = AsyncMock()
+
+        await deleter._on_admin_event(project_remove_event)
+
+        mock_service.delete_all_secrets_for_project.assert_not_awaited()
