@@ -98,6 +98,7 @@ def test_create_with_events() -> None:
         "NP_SECRETS_K8S_API_URL": "https://localhost:8443",
         "PLATFORM_EVENTS_URL": "http://platform-events:8080/apis/events",
         "PLATFORM_EVENTS_TOKEN": "events-token",
+        "NP_CLUSTER_NAME": "apolo-main",
     }
     config = EnvironConfigFactory(environ).create()
     assert config == Config(
@@ -107,10 +108,22 @@ def test_create_with_events() -> None:
             endpoint_url="https://localhost:8443",
             auth_type=KubeClientAuthType.NONE,
         ),
-        cluster_name="",
+        cluster_name="apolo-main",
         events=EventsClientConfig(
             url=URL("http://platform-events:8080/apis/events"),
             token="events-token",
-            name="platform-secrets",
+            name="platform-secrets-apolo-main",
         ),
     )
+
+
+def test_create_events_requires_cluster_name() -> None:
+    environ: dict[str, Any] = {
+        "NP_SECRETS_PLATFORM_AUTH_URL": "-",
+        "NP_SECRETS_PLATFORM_AUTH_TOKEN": "platform-auth-token",
+        "NP_SECRETS_K8S_API_URL": "https://localhost:8443",
+        "PLATFORM_EVENTS_URL": "http://platform-events:8080/apis/events",
+        "PLATFORM_EVENTS_TOKEN": "events-token",
+    }
+    with pytest.raises(ValueError, match="NP_CLUSTER_NAME"):
+        EnvironConfigFactory(environ).create()

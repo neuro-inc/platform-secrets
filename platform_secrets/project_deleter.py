@@ -22,9 +22,11 @@ class ProjectDeleter:
         self,
         config: EventsClientConfig,
         service: Service,
+        cluster_name: str,
     ) -> None:
         self._service = service
         self._client = from_config(config)
+        self._cluster_name = cluster_name
 
     async def __aenter__(self) -> Self:
         await self._client.__aenter__()
@@ -47,6 +49,15 @@ class ProjectDeleter:
         assert org is not None
         project = ev.project
         assert project is not None
+
+        if cluster != self._cluster_name:
+            logger.warning(
+                "Skip %s for cluster %r, this is %r",
+                ev.event_type,
+                cluster,
+                self._cluster_name,
+            )
+            return
 
         try:
             await self._service.delete_all_secrets_for_project(org, project)
