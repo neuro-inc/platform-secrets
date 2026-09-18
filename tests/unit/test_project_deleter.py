@@ -61,7 +61,7 @@ class TestProjectDeleter:
 
         await deleter._process_project_deletion(project_remove_event)
 
-        mock_service.delete_all_secrets_for_project.assert_called_once_with(
+        mock_service.delete_all_secrets_for_project.assert_awaited_once_with(
             "test-org", "test-project"
         )
 
@@ -77,7 +77,7 @@ class TestProjectDeleter:
 
         await deleter._on_admin_event(project_remove_event)
 
-        mock_service.delete_all_secrets_for_project.assert_called_once_with(
+        mock_service.delete_all_secrets_for_project.assert_awaited_once_with(
             "test-org", "test-project"
         )
 
@@ -93,7 +93,7 @@ class TestProjectDeleter:
 
         await deleter._on_admin_event(other_event)
 
-        mock_service.delete_all_secrets_for_project.assert_not_called()
+        mock_service.delete_all_secrets_for_project.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_on_admin_event_handles_service_exception(
@@ -110,7 +110,7 @@ class TestProjectDeleter:
 
         await deleter._on_admin_event(project_remove_event)
 
-        mock_service.delete_all_secrets_for_project.assert_called_once_with(
+        mock_service.delete_all_secrets_for_project.assert_awaited_once_with(
             "test-org", "test-project"
         )
 
@@ -126,4 +126,4 @@ class TestProjectDeleter:
 
         await deleter._on_admin_event(project_remove_event)
 
-        mock_service.delete_all_secrets_for_project.assert_not_called()
+        mock_service.delete_all_secrets_for_project.assert_not_awaited()
