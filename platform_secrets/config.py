@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
-from apolo_kube_client import KubeConfig
 from apolo_events_client import EventsClientConfig
+from apolo_kube_client import KubeConfig
 from yarl import URL
 
 

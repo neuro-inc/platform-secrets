@@ -5,16 +5,17 @@ import re
 from dataclasses import dataclass, field
 
 from apolo_kube_client import (
+    KubeClientSelector,
     ResourceBadRequest,
     ResourceInvalid,
     ResourceNotFound,
-    KubeClientSelector,
+    V1ObjectMeta,
+    V1Secret,
+    V1SecretList,
 )
 from apolo_kube_client.apolo import (
     generate_namespace_name,
 )
-from apolo_kube_client import V1SecretList
-from apolo_kube_client import V1ObjectMeta, V1Secret
 
 logger = logging.getLogger()
 
