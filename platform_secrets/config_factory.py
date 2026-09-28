@@ -2,8 +2,8 @@ import logging
 import os
 from pathlib import Path
 
-from apolo_kube_client import KubeClientAuthType, KubeConfig
 from apolo_events_client import EventsClientConfig
+from apolo_kube_client import KubeClientAuthType, KubeConfig
 from yarl import URL
 
 from .config import (
