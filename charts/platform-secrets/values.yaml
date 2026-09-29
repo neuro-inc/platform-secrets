@@ -17,10 +17,10 @@ securityContext:
 resources:
   requests:
     cpu: 100m
-    memory: "50Mi"
+    memory: "100Mi"
   limits:
     cpu: 300m
-    memory: "100Mi"
+    memory: "256Mi"
 
 secretsNamespace: default
 
