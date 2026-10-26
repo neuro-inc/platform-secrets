@@ -4,7 +4,8 @@ from dataclasses import dataclass
 import pytest
 from aiohttp.hdrs import AUTHORIZATION
 from jose import jwt
-from neuro_auth_client import AuthClient, Permission, User as AuthClientUser
+from neuro_auth_client import AuthClient, Permission
+from neuro_auth_client import User as AuthClientUser
 from yarl import URL
 
 from platform_secrets.config import PlatformAuthConfig
