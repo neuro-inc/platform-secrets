@@ -250,7 +250,7 @@ async def handle_exceptions(
     except aiohttp.web.HTTPException:
         raise
     except Exception as e:
-        msg_str = f"Unexpected exception: {str(e)}. Path with query: {request.path_qs}."
+        msg_str = f"Unexpected exception: {e!s}. Path with query: {request.path_qs}."
         logging.exception(msg_str)
         payload = {"error": msg_str}
         return json_response(payload, status=HTTPInternalServerError.status_code)

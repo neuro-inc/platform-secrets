@@ -1,7 +1,8 @@
 from unittest.mock import AsyncMock, Mock
+
 import pytest
-from yarl import URL
 from apolo_events_client import EventsClientConfig, EventType, RecvEvent, StreamType
+from yarl import URL
 
 from platform_secrets.project_deleter import ProjectDeleter
 from platform_secrets.service import Service
