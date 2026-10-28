@@ -20,7 +20,7 @@ classifiers = [
 python = ">=3.13,<4.0"
 aiohttp = "3.14.5"
 yarl = "1.25.1"
-multidict = "7.1.0"
+multidict = "7.2.1"
 neuro-auth-client = "25.8.2"
 trafaret = "2.1.1"
 neuro-logging = ">=26.9,<27.0"
