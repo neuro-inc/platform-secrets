@@ -15,7 +15,6 @@ RUN pip install --user --no-cache-dir --find-links /tmp/dist platform-secrets \
     && rm -rf /tmp/dist
 
 FROM python:${PY_VERSION}-slim-bookworm as service
-
 LABEL org.opencontainers.image.source="https://github.com/neuro-inc/platform-secrets"
 
 WORKDIR /app
@@ -41,6 +40,5 @@ WORKDIR /app
 
 ENV NP_SECRETS_API_PORT=8080
 EXPOSE $NP_SECRETS_API_PORT
-
 
 CMD ["platform-secrets"]
